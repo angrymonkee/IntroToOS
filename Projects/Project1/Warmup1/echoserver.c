@@ -213,15 +213,17 @@ int main(int argc, char **argv)
 
         if (!fork())
         {
-			// this is the child process
+			// This is the child process
 			
 			char buf[BUFSIZE];
 			int numbytes = recv(newSocket, buf, BUFSIZE - 1, 0);
-			if(numbytes < 0)
+			if(numbytes <= 0)
 			{
-				perror("Unable to retrieve inbound message");
-				exit(1);
+				perror("Invalid message received\n");
+				exit(-1);
 			}
+			
+			buf[numbytes] = '\0';
 			
 			printf("Received message: %s\n", buf);
 			
@@ -229,7 +231,7 @@ int main(int argc, char **argv)
             
             printf("Sending reply: %s\n", buf);
             
-            if (send(newSocket, buf, 13, 0) == -1)
+            if (send(newSocket, buf, BUFSIZE, 0) == -1)
             {
                 perror("send");
             }
