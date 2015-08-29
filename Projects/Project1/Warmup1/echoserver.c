@@ -59,7 +59,6 @@ struct hostent {
 
 void sigchld_handler(int s)
 {
-    // waitpid() might overwrite errno, so we save and restore it:
     int saved_errno = errno;
 
     while(waitpid(-1, NULL, WNOHANG) > 0);
@@ -69,11 +68,75 @@ void sigchld_handler(int s)
 
 void *get_in_addr(struct sockaddr *sa)
 {
-    if (sa->sa_family == AF_INET) {
+    if (sa->sa_family == AF_INET)
+    {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+int GetListeningSocket(char *portno)
+{
+	struct addrinfo socketOptions;
+    memset(&socketOptions, 0, sizeof socketOptions);
+    socketOptions.ai_family = AF_UNSPEC;
+    socketOptions.ai_socktype = SOCK_STREAM;
+    socketOptions.ai_flags = AI_PASSIVE;
+
+	// Setting getaddrinfo 'node' to NULL and passing AI_PASSIVE makes
+	// addresses suitable for binding
+	struct addrinfo *serverAddresses;
+    int rv = getaddrinfo(NULL, portno, &socketOptions, &serverAddresses);
+    if (rv != 0) 
+    {
+        fprintf(stderr, "getaddrinfo did not find address: %s\n", gai_strerror(rv));
+        exit(1);
+    }
+
+	// Loop through all addresses to find listening socket and bind
+    int listeningSocket;
+    struct addrinfo *foundAddress;
+    int yes=1;
+    for(foundAddress = serverAddresses; foundAddress != NULL; foundAddress = foundAddress->ai_next) 
+    {
+        if ((listeningSocket = socket(foundAddress->ai_family, foundAddress->ai_socktype, foundAddress->ai_protocol)) == -1) 
+		{
+            perror("Error setting up listening socket\n");
+            continue;
+        }
+
+		// Set socket options:
+		// SOL_SOCKET, SO_REUSEADDR	- Allows socket to use the same address
+		// 		and port being used by another socket of the same protocal
+		// 		type in the system (restarts on closed/killed process)
+        if (setsockopt(listeningSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
+        {
+            perror("Error setting listening socket options\n");
+            exit(1);
+        }
+
+		// Bind socket to port
+        if (bind(listeningSocket, foundAddress->ai_addr, foundAddress->ai_addrlen) == -1)
+        {
+            close(listeningSocket);
+            perror("server: bind");
+            continue;
+        }
+
+        break;
+    }
+
+	// Free my addresses
+    freeaddrinfo(serverAddresses);
+    
+	if (foundAddress == NULL) 
+    {
+        fprintf(stderr, "Failed to find address for binding\n");
+        exit(1);
+    }
+    
+    return listeningSocket;
 }
 
 /* Main ============================================================= */
@@ -105,101 +168,45 @@ int main(int argc, char **argv)
 		}
 	}
 
-
-    int listeningSocket, new_fd;  // listen on sock_fd, new connection on new_fd
-    struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_storage their_addr; // connector's address information
-    socklen_t sin_size;
-    struct sigaction sa;
-    int yes=1;
-    char s[INET6_ADDRSTRLEN];
-    int rv;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
-
-
-	// Setting getaddrinfo 'node' to NULL and passing AI_PASSIVE makes
-	// addresses suitable for binding
-    if ((rv = getaddrinfo(NULL, portno, &hints, &servinfo)) != 0) 
-    {
-        fprintf(stderr, "getaddrinfo did not find address: %s\n", gai_strerror(rv));
-        return 1;
-    }
-
-    // Loop through all addresses and bind to the first we can
-    for(p = servinfo; p != NULL; p = p->ai_next) 
-    {
-        if ((listeningSocket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) 
-		{
-            perror("server: socket");
-            continue;
-        }
-
-		// Set socket options:
-		// SOL_SOCKET, SO_REUSEADDR	- Allows socket to use the same address
-		// 		and port being used by another socket of the same protocal
-		// 		type in the system (restarts on closed/killed process)
-        if (setsockopt(listeningSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
-        {
-            perror("setsockopt");
-            exit(1);
-        }
-
-		// Bind socket to port
-        if (bind(listeningSocket, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(listeningSocket);
-            perror("server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-	// Free IP addresses
-    freeaddrinfo(servinfo);
-
-    if (p == NULL) 
-    {
-        fprintf(stderr, "server: failed to bind\n");
-        exit(1);
-    }
-
-	// Listen to socket connections
+	// Get listening socket connection
+	int listeningSocket = GetListeningSocket(portno);
     if (listen(listeningSocket, maxnpending) == -1)
     {
-        perror("listen");
+        perror("Error listening for connections\n");
         exit(1);
     }
 
 	// Reap zombie processes
+	struct sigaction sa;
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
+    
     if (sigaction(SIGCHLD, &sa, NULL) == -1)
     {
-        perror("sigaction");
+        perror("Error reaping processes\n");
         exit(1);
     }
 
-    printf("server: waiting for connections...\n");
+    printf("Waiting for connections...\n");
+
+	int newSocket;
+	struct sockaddr_storage clientAddress;
+	char s[INET6_ADDRSTRLEN];
 
     while(1)
     {
-        sin_size = sizeof their_addr;
-        new_fd = accept(listeningSocket, (struct sockaddr *)&their_addr, &sin_size);
+        socklen_t addressLength = sizeof clientAddress;
+        newSocket = accept(listeningSocket, (struct sockaddr *)&clientAddress, &addressLength);
 
-        if (new_fd == -1) 
+        if (newSocket == -1) 
         {
             perror("accept");
             continue;
         }
 
-        inet_ntop(their_addr.ss_family, 
-			get_in_addr((struct sockaddr *)&their_addr),
+        inet_ntop(clientAddress.ss_family, 
+			get_in_addr((struct sockaddr *)&clientAddress),
             s, sizeof s);
             
         printf("server: got connection from %s\n", s);
@@ -209,7 +216,7 @@ int main(int argc, char **argv)
 			// this is the child process
 			
 			char buf[BUFSIZE];
-			int numbytes = recv(new_fd, buf, BUFSIZE - 1, 0);
+			int numbytes = recv(newSocket, buf, BUFSIZE - 1, 0);
 			if(numbytes < 0)
 			{
 				perror("Unable to retrieve inbound message");
@@ -222,16 +229,16 @@ int main(int argc, char **argv)
             
             printf("Sending reply: %s\n", buf);
             
-            if (send(new_fd, buf, 13, 0) == -1)
+            if (send(newSocket, buf, 13, 0) == -1)
             {
                 perror("send");
             }
             
-            close(new_fd);
+            close(newSocket);
             exit(0);
         }
         
-        close(new_fd);  // parent doesn't need this
+        close(newSocket);
     }
 
     return 0;
