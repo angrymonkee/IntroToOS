@@ -13,6 +13,38 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+#if 0
+/* 
+ * Structs exported from netinet/in.h (for easy reference)
+ */
+
+/* Internet address */
+struct in_addr {
+  unsigned int s_addr; 
+};
+
+/* Internet style socket address */
+struct sockaddr_in  {
+  unsigned short int sin_family; /* Address family */
+  unsigned short int sin_port;   /* Port number */
+  struct in_addr sin_addr;	 /* IP address */
+  unsigned char sin_zero[...];   /* Pad to size of 'struct sockaddr' */
+};
+
+/*
+ * Struct exported from netdb.h
+ */
+
+/* Domain name service (DNS) host entry */
+struct hostent {
+  char    *h_name;        /* official name of host */
+  char    **h_aliases;    /* alias list */
+  int     h_addrtype;     /* host address type */
+  int     h_length;       /* length of address */
+  char    **h_addr_list;  /* list of addresses */
+}
+#endif
+
 #define BUFSIZE 16
 
 #define USAGE                                                                 \
@@ -115,6 +147,7 @@ void ReapZombieProcesses()
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
 
+    
     if (sigaction(SIGCHLD, &sa, NULL) == -1)
     {
         perror("Error reaping processes\n");
@@ -159,9 +192,19 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-	ReapZombieProcesses();
+	// Reap zombie processes
+	struct sigaction sa;
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    
+    if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    {
+        perror("Error reaping processes\n");
+        exit(1);
+    }
 
-    printf("Listening for connections...\n");
+    printf("Waiting for connections...\n");
 
 	int clientSocket;
 	struct sockaddr_storage clientAddress;
@@ -186,42 +229,26 @@ int main(int argc, char **argv)
         if (!fork())
         {
 			// This is the child process
-			char fileStream[BUFSIZE];
-			int numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
+			
+			char buf[BUFSIZE];
+			int numbytes = recv(clientSocket, buf, BUFSIZE - 1, 0);
 			if(numbytes <= 0)
 			{
 				perror("Invalid message received\n");
 				exit(-1);
 			}
 			
-			fileStream[numbytes] = '\0';
+			buf[numbytes] = '\0';
 			
-			// Read file stream
-			char *fileName = "recievedFile.txt";
-			FILE *fp;
-			
-			fp=fopen(fileName,"w");
-			if (fp == NULL)
-			{
-				fprintf(stderr, "Can't open input file in.list!\n");
-				exit(1);
-			}
-			
-			fprintf(fp,"%s",fileStream);
-			
-			printf("The file %s was received successfully\n", fileName);
-			
-			fclose(fp);
-			
-			printf("Received file\n");
+			printf("Received message: %s\n", buf);
 			
             close(listeningSocket); // child doesn't need the listener
             
-            printf("Sending success reply");
+            printf("Sending reply: %s\n", buf);
             
-            if (send(clientSocket, "File received successfully", 26, 0) == -1)
+            if (send(clientSocket, buf, BUFSIZE, 0) == -1)
             {
-                perror("Error sending response to client");
+                perror("send");
             }
             
             close(clientSocket);
@@ -232,4 +259,69 @@ int main(int argc, char **argv)
     }
 
     return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include<stdio.h>
+#include<sys/types.h>
+#include<string.h>
+#include<stdlib.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
+#include<unistd.h>
+
+#define SA struct sockaddr
+#define LISTENQ 5
+
+int main(int argc,char**argv)
+{
+	int fd,sockfd,listenfd,connfd;
+	pid_t childpid;
+	socklen_t client;
+	struct sockaddr_in servaddr,cliaddr;
+	
+	listenfd=socket(AF_INET,SOCK_STREAM,0);
+	
+	bzero(&servaddr,sizeof(servaddr));
+	
+	servaddr.sin_family=AF_INET;
+	servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
+	servaddr.sin_port=htons(atoi(argv[1]));
+	
+	bind(listenfd,(SA*)&servaddr,sizeof(servaddr));
+	
+	listen(listenfd,LISTENQ);
+	
+	client=sizeof(cliaddr);
+	
+	connfd=accept(listenfd,(SA*)&cliaddr,&client);
+	
+	char buffer[100];
+	FILE *fp;
+	read(connfd,buffer,100);
+	fp=fopen("add1.txt","w");
+	fprintf(fp,"%s",buffer);
+	printf("the file was received successfully");
+	printf("the new file created is add1.txt");
 }
