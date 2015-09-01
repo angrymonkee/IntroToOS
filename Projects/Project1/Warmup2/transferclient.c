@@ -20,7 +20,7 @@
 "options:\n"                                                                  \
 "  -s                  Server (Default: localhost)\n"                         \
 "  -p                  Port (Default: 8888)\n"                                \
-"  -m                  Message to send to server (Default: \"Hello World!\"\n"\
+"  -o                  Output filename (Default: foo.txt)\n"\
 "  -h                  Show this help message\n"                              
 
 
@@ -42,10 +42,10 @@ int main(int argc, char **argv)
 	int argSwitch = 0;
 	char *hostname = "localhost";
 	char *portno = "8888";
-	char *message = "Hello World!";
+	char *fileName = "foo.txt";
 
 	// Parse and set command line arguments
-	while ((argSwitch = getopt(argc, argv, "s:p:m:h")) != -1) 
+	while ((argSwitch = getopt(argc, argv, "s:p:o:h")) != -1) 
 	{
 		switch (argSwitch) 
 		{
@@ -55,8 +55,8 @@ int main(int argc, char **argv)
 			case 'p': // listen-port
 				portno = optarg;
 				break;                                        
-			case 'm': // server
-				message = optarg;
+			case 'o': // filename
+				fileName = optarg;
 				break;    
 			case 'h': // help
 				fprintf(stdout, "%s", USAGE);
@@ -115,31 +115,59 @@ int main(int argc, char **argv)
     }
 
 	// Connect to found address
-	char address[INET6_ADDRSTRLEN];
-    inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), address, sizeof address);
+	char serverAddress[INET6_ADDRSTRLEN];
+    inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
     
-    printf("Connecting to address: %s\n", address);
+    printf("Connecting to server at address: %s\n", serverAddress);
 
     freeaddrinfo(addresses);
 
-	// Send request to server
-	if(send(socketDescriptor , message , strlen(message) , 0) < 0)
+	// Send file to server
+	FILE *fp = fopen(fileName,"r");
+	if (fp == NULL)
 	{
-		printf("Request failed!\n");
-		return 1;
-	}
-	
-	printf("Request sent: %s\n", message);
-
-	// Receive response from server
-	char msgBuffer[BUFSIZE];
-	if(recv(socketDescriptor, msgBuffer, BUFSIZE - 1, 0) < 0)
-	{
-		printf("Response failed!");
+		fprintf(stderr, "Can't open input file in.list!\n");
 		exit(1);
 	}
 	
-    printf("Response: '%s'\n", msgBuffer);
+	// Get size of file
+	fseek(fp, 0L, SEEK_END);
+	long numbytes = ftell(fp);
+	
+	// Move file position back to beginning of file
+	fseek(fp, 0L, SEEK_SET);
+	
+	// Read file to buffer
+	char fileBuffer[numbytes];
+	fread(fileBuffer, sizeof(char), numbytes, fp);
+	fclose(fp);
+
+	long bytesLeft = numbytes;
+	
+	printf("Sending %lu bytes to server\n", bytesLeft);
+	
+	while(bytesLeft > 0)
+	{
+		bytesLeft = bytesLeft - send(socketDescriptor, fileBuffer, BUFSIZE - 1, 0);
+		printf("%lu bytes left", bytesLeft);
+	}
+
+
+	
+	free(fileBuffer);
+
+	
+	printf("File %s sent\n", fileName);
+
+	//~ // Receive response from server
+	//~ char msgBuffer[BUFSIZE];
+	//~ if(recv(socketDescriptor, msgBuffer, BUFSIZE - 1, 0) < 0)
+	//~ {
+		//~ printf("Response failed!");
+		//~ exit(1);
+	//~ }
+	//~ 
+    //~ printf("Response: '%s'\n", msgBuffer);
 
     close(socketDescriptor);
 

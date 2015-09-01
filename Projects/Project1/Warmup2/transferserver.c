@@ -185,41 +185,43 @@ int main(int argc, char **argv)
 
         if (!fork())
         {
-			// This is the child process
 			char fileStream[BUFSIZE];
-			int numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
-			if(numbytes <= 0)
-			{
-				perror("Invalid message received\n");
-				exit(-1);
-			}
-			
-			fileStream[numbytes] = '\0';
-			
-			// Read file stream
+			int numbytes;
 			char *fileName = "recievedFile.txt";
 			FILE *fp;
-			
-			fp=fopen(fileName,"w");
-			if (fp == NULL)
+				
+			// Pull stream in chunks based on BUFSIZE
+			do
 			{
-				fprintf(stderr, "Can't open input file in.list!\n");
-				exit(1);
-			}
-			
-			fprintf(fp,"%s",fileStream);
-			
-			printf("The file %s was received successfully\n", fileName);
+				numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
+				if(numbytes <= 0)
+				{
+					printf("End of message received\n");
+				}
+				else
+				{
+					// fileStream[numbytes] = '\0';
+
+					fp = fopen(fileName,"a");
+					if (fp == NULL)
+					{
+						fprintf(stderr, "Can't open input file in.list!\n");
+						exit(1);
+					}
+
+					// Write to file
+					fprintf(fp,"%s",fileStream);
+					printf("Recieved %d bytes of file %s\n", numbytes, fileName);
+				}
+			}while(numbytes > 0);
 			
 			fclose(fp);
+
+			close(listeningSocket);
 			
-			printf("Received file\n");
-			
-            close(listeningSocket); // child doesn't need the listener
+            printf("File transmission complete\n");
             
-            printf("Sending success reply");
-            
-            if (send(clientSocket, "File received successfully", 26, 0) == -1)
+            if (send(clientSocket, "File received", 13, 0) == -1)
             {
                 perror("Error sending response to client");
             }
@@ -227,8 +229,10 @@ int main(int argc, char **argv)
             close(clientSocket);
             exit(0);
         }
-        
-        close(clientSocket);
+        else
+        {
+			close(clientSocket);
+		}
     }
 
     return 0;
