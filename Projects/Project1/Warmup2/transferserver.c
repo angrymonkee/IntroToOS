@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <time.h>
 
 #define BUFSIZE 16
 
@@ -122,6 +123,34 @@ void ReapZombieProcesses()
     }
 }
 
+char CurrentDateTimeString()
+{
+	char text[17];
+	time_t now = time(NULL);
+	struct tm *t = localtime(&now);
+	strftime(text, sizeof(text)-1, "%dd %mm %YYYY %HH:%MM", t);
+	text[16] = 0;
+	
+	return text[0];
+}
+
+char *Concat(char *string1, char *string2)
+{
+	char *concatString;
+	if((concatString = malloc(strlen(string1)+strlen(string2)+1)) != NULL)
+	{
+		concatString[0] = '\0';   // ensures the memory is an empty string
+		strcat(concatString, string1);
+		strcat(concatString, string2);
+		return concatString;
+	}
+	else
+	{
+		printf("Unable to concat strings...\n");
+		exit(1);
+	}
+}
+
 /* Main ============================================================= */
 
 int main(int argc, char **argv) 
@@ -185,14 +214,24 @@ int main(int argc, char **argv)
 
         if (!fork())
         {
+			char *fileName = "recieved.txt";
+			
+			// Write incomming stream to file
 			char fileStream[BUFSIZE];
 			int numbytes;
-			char *fileName = "recievedFile.txt";
 			FILE *fp;
 				
-			// Pull stream in chunks based on BUFSIZE
+			fp = fopen(fileName,"a");
+			if (fp == NULL)
+			{
+				fprintf(stderr, "Can't open input file in.list!\n");
+				exit(1);
+			}
+				
+			// Write stream in chunks based on BUFSIZE
 			do
 			{
+				memset( fileStream, '\0', sizeof(char)*BUFSIZE );
 				numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
 				if(numbytes <= 0)
 				{
@@ -200,18 +239,9 @@ int main(int argc, char **argv)
 				}
 				else
 				{
-					// fileStream[numbytes] = '\0';
-
-					fp = fopen(fileName,"a");
-					if (fp == NULL)
-					{
-						fprintf(stderr, "Can't open input file in.list!\n");
-						exit(1);
-					}
-
 					// Write to file
-					fprintf(fp,"%s",fileStream);
-					printf("Recieved %d bytes of file %s\n", numbytes, fileName);
+					fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+					printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
 				}
 			}while(numbytes > 0);
 			

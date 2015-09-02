@@ -146,28 +146,16 @@ int main(int argc, char **argv)
 	
 	printf("Sending %lu bytes to server\n", bytesLeft);
 	
-	while(bytesLeft > 0)
+	while(bytesLeft > 1)
 	{
-		bytesLeft = bytesLeft - send(socketDescriptor, fileBuffer, BUFSIZE - 1, 0);
-		printf("%lu bytes left", bytesLeft);
+		char *subsetArray;
+		subsetArray = &fileBuffer[numbytes - bytesLeft];
+		
+		bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+		printf("%lu bytes left...\n", bytesLeft);
 	}
 
-
-	
-	free(fileBuffer);
-
-	
 	printf("File %s sent\n", fileName);
-
-	//~ // Receive response from server
-	//~ char msgBuffer[BUFSIZE];
-	//~ if(recv(socketDescriptor, msgBuffer, BUFSIZE - 1, 0) < 0)
-	//~ {
-		//~ printf("Response failed!");
-		//~ exit(1);
-	//~ }
-	//~ 
-    //~ printf("Response: '%s'\n", msgBuffer);
 
     close(socketDescriptor);
 
