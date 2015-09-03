@@ -146,12 +146,19 @@ int main(int argc, char **argv)
 	
 	printf("Sending %lu bytes to server\n", bytesLeft);
 	
-	while(bytesLeft > 1)
+	while(bytesLeft >= 1)
 	{
 		char *subsetArray;
 		subsetArray = &fileBuffer[numbytes - bytesLeft];
 		
-		bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+		if(bytesLeft == 1)
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
+		}
+		else
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+		}
 		printf("%lu bytes left...\n", bytesLeft);
 	}
 

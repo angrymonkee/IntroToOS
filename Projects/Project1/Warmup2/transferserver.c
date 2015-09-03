@@ -243,7 +243,8 @@ int main(int argc, char **argv)
 					fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
 					printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
 				}
-			}while(numbytes > 0);
+				
+			}while(!feof(fp) && numbytes > 0);
 			
 			fclose(fp);
 
@@ -253,7 +254,7 @@ int main(int argc, char **argv)
             
             if (send(clientSocket, "File received", 13, 0) == -1)
             {
-                perror("Error sending response to client");
+                perror("Error sending response to client\n");
             }
             
             close(clientSocket);
