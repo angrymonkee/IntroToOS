@@ -36,40 +36,90 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-/* Main ========================================================= */
-int main(int argc, char **argv) 
+void ReadSocketToFile(int clientSocket, char * fileName)
 {
-	int argSwitch = 0;
-	char *hostname = "localhost";
-	char *portno = "8888";
-	char *fileName = "foo.txt";
-
-	// Parse and set command line arguments
-	while ((argSwitch = getopt(argc, argv, "s:p:o:h")) != -1) 
+	// Write incomming stream to file
+	char fileStream[BUFSIZE];
+	int numbytes;
+	FILE *fp;
+		
+	fp = fopen(fileName,"a");
+	if (fp == NULL)
 	{
-		switch (argSwitch) 
-		{
-			case 's': // server
-				hostname = optarg;
-				break; 
-			case 'p': // listen-port
-				portno = optarg;
-				break;                                        
-			case 'o': // filename
-				fileName = optarg;
-				break;    
-			case 'h': // help
-				fprintf(stdout, "%s", USAGE);
-				exit(0);
-				break;       
-			default:
-				fprintf(stderr, "%s", USAGE);
-				exit(1);
-		}
+		fprintf(stderr, "Can't open input file in!\n");
+		exit(1);
 	}
+		
+	// Write stream in chunks based on BUFSIZE
+	do
+	{
+		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
+		numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
+		if(numbytes <= 0)
+		{
+			printf("End of message received\n");
+		}
+		else
+		{
+			// Write to file
+			fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
+		}
+		
+	}while(!feof(fp) && numbytes > 0);
+	
+	fclose(fp);
+}
 
+void WriteFileToSocket(int socketDescriptor, char * fileName)
+{
+	// Send file to server
+	FILE *fp = fopen(fileName,"r");
+	if (fp == NULL)
+	{
+		fprintf(stderr, "Cannot open file in!\n");
+		exit(1);
+	}
+	
+	// Get size of file
+	fseek(fp, 0L, SEEK_END);
+	long numbytes = ftell(fp);
+	
+	// Move file position back to beginning of file
+	fseek(fp, 0L, SEEK_SET);
+	
+	// Read file to buffer
+	char fileBuffer[numbytes];
+	fread(fileBuffer, sizeof(char), numbytes, fp);
+	fclose(fp);
+
+	long bytesLeft = numbytes;
+	
+	printf("Writing %lu bytes to socket\n", bytesLeft);
+	
+	while(bytesLeft >= 1)
+	{
+		char *subsetArray;
+		subsetArray = &fileBuffer[numbytes - bytesLeft];
+		
+		if(bytesLeft == 1)
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
+		}
+		else
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+		}
+		printf("%lu bytes left...\n", bytesLeft);
+	}
+	
+	printf("File %s done writing...\n", fileName);
+}
+
+int ConnectToHost(char *hostName, char *portNo)
+{
 	int socketDescriptor;
-
+	
 	printf("Getting host addresses\n");
 
 	// Setup address options
@@ -79,7 +129,7 @@ int main(int argc, char **argv)
     addressOptions.ai_socktype = SOCK_STREAM;
 
 	struct addrinfo *addresses;
-	int status = getaddrinfo(hostname, portno, &addressOptions, &addresses);
+	int status = getaddrinfo(hostName, portNo, &addressOptions, &addresses);
     if (status != 0) 
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
@@ -113,8 +163,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Failed to connect\n");
         return 2;
     }
-
-	// Connect to found address
+    
+    // Connect to found address
 	char serverAddress[INET6_ADDRSTRLEN];
     inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
     
@@ -122,47 +172,44 @@ int main(int argc, char **argv)
 
     freeaddrinfo(addresses);
 
-	// Send file to server
-	FILE *fp = fopen(fileName,"r");
-	if (fp == NULL)
-	{
-		fprintf(stderr, "Can't open input file in.list!\n");
-		exit(1);
-	}
-	
-	// Get size of file
-	fseek(fp, 0L, SEEK_END);
-	long numbytes = ftell(fp);
-	
-	// Move file position back to beginning of file
-	fseek(fp, 0L, SEEK_SET);
-	
-	// Read file to buffer
-	char fileBuffer[numbytes];
-	fread(fileBuffer, sizeof(char), numbytes, fp);
-	fclose(fp);
+	return socketDescriptor;
+}
 
-	long bytesLeft = numbytes;
-	
-	printf("Sending %lu bytes to server\n", bytesLeft);
-	
-	while(bytesLeft >= 1)
+/* Main ========================================================= */
+int main(int argc, char **argv) 
+{
+	int argSwitch = 0;
+	char *hostname = "localhost";
+	char *portno = "8888";
+	char *fileName = "foo.txt";
+
+	// Parse and set command line arguments
+	while ((argSwitch = getopt(argc, argv, "s:p:o:h")) != -1) 
 	{
-		char *subsetArray;
-		subsetArray = &fileBuffer[numbytes - bytesLeft];
-		
-		if(bytesLeft == 1)
+		switch (argSwitch) 
 		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
+			case 's': // server
+				hostname = optarg;
+				break; 
+			case 'p': // listen-port
+				portno = optarg;
+				break;                                        
+			case 'o': // output file name
+				fileName = optarg;
+				break;    
+			case 'h': // help
+				fprintf(stdout, "%s", USAGE);
+				exit(0);
+				break;       
+			default:
+				fprintf(stderr, "%s", USAGE);
+				exit(1);
 		}
-		else
-		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
-		}
-		printf("%lu bytes left...\n", bytesLeft);
 	}
 
-	printf("File %s sent\n", fileName);
+	int socketDescriptor = ConnectToHost(hostname, portno);
+
+	ReadSocketToFile(socketDescriptor, fileName);
 
     close(socketDescriptor);
 

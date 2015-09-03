@@ -134,21 +134,84 @@ char CurrentDateTimeString()
 	return text[0];
 }
 
-char *Concat(char *string1, char *string2)
+void ReadSocketToFile(int clientSocket, char * fileName)
 {
-	char *concatString;
-	if((concatString = malloc(strlen(string1)+strlen(string2)+1)) != NULL)
+	// Write incomming stream to file
+	char fileStream[BUFSIZE];
+	int numbytes;
+	FILE *fp;
+		
+	fp = fopen(fileName,"a");
+	if (fp == NULL)
 	{
-		concatString[0] = '\0';   // ensures the memory is an empty string
-		strcat(concatString, string1);
-		strcat(concatString, string2);
-		return concatString;
-	}
-	else
-	{
-		printf("Unable to concat strings...\n");
+		fprintf(stderr, "Can't open input file in!\n");
 		exit(1);
 	}
+		
+	// Write stream in chunks based on BUFSIZE
+	do
+	{
+		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
+		numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
+		if(numbytes <= 0)
+		{
+			printf("End of message received\n");
+		}
+		else
+		{
+			// Write to file
+			fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
+		}
+		
+	}while(!feof(fp) && numbytes > 0);
+	
+	fclose(fp);
+}
+
+void WriteFileToSocket(char * fileName, int socketDescriptor)
+{
+	// Send file to server
+	FILE *fp = fopen(fileName,"r");
+	if (fp == NULL)
+	{
+		fprintf(stderr, "Cannot open file in!\n");
+		exit(1);
+	}
+	
+	// Get size of file
+	fseek(fp, 0L, SEEK_END);
+	long numbytes = ftell(fp);
+	
+	// Move file position back to beginning of file
+	fseek(fp, 0L, SEEK_SET);
+	
+	// Read file to buffer
+	char fileBuffer[numbytes];
+	fread(fileBuffer, sizeof(char), numbytes, fp);
+	fclose(fp);
+
+	long bytesLeft = numbytes;
+	
+	printf("Writing %lu bytes to socket\n", bytesLeft);
+	
+	while(bytesLeft >= 1)
+	{
+		char *subsetArray;
+		subsetArray = &fileBuffer[numbytes - bytesLeft];
+		
+		if(bytesLeft == 1)
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
+		}
+		else
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+		}
+		printf("%lu bytes left...\n", bytesLeft);
+	}
+	
+	printf("File %s done writing...\n", fileName);
 }
 
 /* Main ============================================================= */
@@ -157,17 +220,18 @@ int main(int argc, char **argv)
 {
 	int optionChar;
 	char *portno = "8888";
+	char *fileName = "bar.txt";
 	int maxnpending = 5;
 
 	// Parse and set command line arguments
-	while ((optionChar = getopt(argc, argv, "p:n:h")) != -1)
+	while ((optionChar = getopt(argc, argv, "p:f:h")) != -1)
 	{
 		switch (optionChar)
 		{
 			case 'p': // listen-port
 				portno = optarg;
 				break;                                        
-			case 'n': // server
+			case 'f': // file to serve
 				maxnpending = atoi(optarg);
 				break; 
 			case 'h': // help
@@ -213,46 +277,14 @@ int main(int argc, char **argv)
         printf("server: got connection from %s\n", s);
 
         if (!fork())
-        {
-			char *fileName = "recieved.txt";
-			
-			// Write incomming stream to file
-			char fileStream[BUFSIZE];
-			int numbytes;
-			FILE *fp;
-				
-			fp = fopen(fileName,"a");
-			if (fp == NULL)
-			{
-				fprintf(stderr, "Can't open input file in.list!\n");
-				exit(1);
-			}
-				
-			// Write stream in chunks based on BUFSIZE
-			do
-			{
-				memset( fileStream, '\0', sizeof(char)*BUFSIZE );
-				numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
-				if(numbytes <= 0)
-				{
-					printf("End of message received\n");
-				}
-				else
-				{
-					// Write to file
-					fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
-					printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
-				}
-				
-			}while(!feof(fp) && numbytes > 0);
-			
-			fclose(fp);
+        {			
+			WriteFileToSocket(fileName, clientSocket);
 
 			close(listeningSocket);
 			
             printf("File transmission complete\n");
             
-            if (send(clientSocket, "File received", 13, 0) == -1)
+            if (send(clientSocket, "File sent successfully", 13, 0) == -1)
             {
                 perror("Error sending response to client\n");
             }
