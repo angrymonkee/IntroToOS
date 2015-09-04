@@ -61,8 +61,14 @@ void ReadSocketToFile(int clientSocket, char * fileName)
 		}
 		else
 		{
-			// Write to file
-			fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+			if(numbytes < BUFSIZE)
+			{
+				fwrite(fileStream, sizeof(char), numbytes - 1, fp);
+			}
+			else
+			{
+				fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+			}
 			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
 		}
 		

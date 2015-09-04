@@ -21,7 +21,7 @@
 "  echoserver [options]\n"                                                    \
 "options:\n"                                                                  \
 "  -p                  Port (Default: 8888)\n"                                \
-"  -n                  Maximum pending connections\n"                         \
+"  -f                  Filename (Default: bar.txt)\n"                         \
 "  -h                  Show this help message\n"                              
 
 /* Helper Methods ==================================================== */
@@ -156,9 +156,9 @@ void WriteFileToSocket(char * fileName, int socketDescriptor)
 		memset( subsetArray, '\0', sizeof(char)*BUFSIZE );
 		subsetArray = &fileBuffer[numbytes - bytesLeft];
 		
-		if(bytesLeft == 1)
+		if(bytesLeft < BUFSIZE)
 		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft, 0);
 		}
 		else
 		{
