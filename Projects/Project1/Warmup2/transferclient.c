@@ -54,7 +54,7 @@ void ReadSocketToFile(int clientSocket, char * fileName)
 	do
 	{
 		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
-		numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
+		numbytes = recv(clientSocket, fileStream, BUFSIZE, 0);
 		if(numbytes <= 0)
 		{
 			printf("End of message received\n");
@@ -63,11 +63,11 @@ void ReadSocketToFile(int clientSocket, char * fileName)
 		{
 			if(numbytes < BUFSIZE)
 			{
-				fwrite(fileStream, sizeof(char), numbytes - 1, fp);
+				fwrite(fileStream, sizeof(char), numbytes, fp);
 			}
 			else
 			{
-				fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
+				fwrite(fileStream, sizeof(char), BUFSIZE, fp);
 			}
 			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
 		}
