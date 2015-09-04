@@ -198,6 +198,8 @@ void WriteFileToSocket(char * fileName, int socketDescriptor)
 	while(bytesLeft >= 1)
 	{
 		char *subsetArray;
+		
+		memset( subsetArray, '\0', sizeof(char)*BUFSIZE );
 		subsetArray = &fileBuffer[numbytes - bytesLeft];
 		
 		if(bytesLeft == 1)
@@ -206,7 +208,7 @@ void WriteFileToSocket(char * fileName, int socketDescriptor)
 		}
 		else
 		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
 		}
 		printf("%lu bytes left...\n", bytesLeft);
 	}
@@ -232,7 +234,7 @@ int main(int argc, char **argv)
 				portno = optarg;
 				break;                                        
 			case 'f': // file to serve
-				maxnpending = atoi(optarg);
+				fileName = optarg;
 				break; 
 			case 'h': // help
 				fprintf(stdout, "%s", USAGE);
@@ -283,11 +285,6 @@ int main(int argc, char **argv)
 			close(listeningSocket);
 			
             printf("File transmission complete\n");
-            
-            if (send(clientSocket, "File sent successfully", 13, 0) == -1)
-            {
-                perror("Error sending response to client\n");
-            }
             
             close(clientSocket);
             exit(0);
