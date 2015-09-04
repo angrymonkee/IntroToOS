@@ -71,51 +71,6 @@ void ReadSocketToFile(int clientSocket, char * fileName)
 	fclose(fp);
 }
 
-void WriteFileToSocket(int socketDescriptor, char * fileName)
-{
-	// Send file to server
-	FILE *fp = fopen(fileName,"r");
-	if (fp == NULL)
-	{
-		fprintf(stderr, "Cannot open file in!\n");
-		exit(1);
-	}
-	
-	// Get size of file
-	fseek(fp, 0L, SEEK_END);
-	long numbytes = ftell(fp);
-	
-	// Move file position back to beginning of file
-	fseek(fp, 0L, SEEK_SET);
-	
-	// Read file to buffer
-	char fileBuffer[numbytes];
-	fread(fileBuffer, sizeof(char), numbytes, fp);
-	fclose(fp);
-
-	long bytesLeft = numbytes;
-	
-	printf("Writing %lu bytes to socket\n", bytesLeft);
-	
-	while(bytesLeft >= 1)
-	{
-		char *subsetArray;
-		subsetArray = &fileBuffer[numbytes - bytesLeft];
-		
-		if(bytesLeft == 1)
-		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, 1, 0);
-		}
-		else
-		{
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft - 1, 0);
-		}
-		printf("%lu bytes left...\n", bytesLeft);
-	}
-	
-	printf("File %s done writing...\n", fileName);
-}
-
 int ConnectToHost(char *hostName, char *portNo)
 {
 	int socketDescriptor;

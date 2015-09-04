@@ -123,52 +123,6 @@ void ReapZombieProcesses()
     }
 }
 
-char CurrentDateTimeString()
-{
-	char text[17];
-	time_t now = time(NULL);
-	struct tm *t = localtime(&now);
-	strftime(text, sizeof(text)-1, "%dd %mm %YYYY %HH:%MM", t);
-	text[16] = 0;
-	
-	return text[0];
-}
-
-void ReadSocketToFile(int clientSocket, char * fileName)
-{
-	// Write incomming stream to file
-	char fileStream[BUFSIZE];
-	int numbytes;
-	FILE *fp;
-		
-	fp = fopen(fileName,"a");
-	if (fp == NULL)
-	{
-		fprintf(stderr, "Can't open input file in!\n");
-		exit(1);
-	}
-		
-	// Write stream in chunks based on BUFSIZE
-	do
-	{
-		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
-		numbytes = recv(clientSocket, fileStream, BUFSIZE - 1, 0);
-		if(numbytes <= 0)
-		{
-			printf("End of message received\n");
-		}
-		else
-		{
-			// Write to file
-			fwrite(fileStream, sizeof(char), BUFSIZE - 1, fp);
-			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
-		}
-		
-	}while(!feof(fp) && numbytes > 0);
-	
-	fclose(fp);
-}
-
 void WriteFileToSocket(char * fileName, int socketDescriptor)
 {
 	// Send file to server
