@@ -22,6 +22,10 @@ typedef struct
 	char * Path;
 	int Port;
 	struct gfstatus_t Status;
+	void (*HeaderFunction)(void*, size_t, void *);
+	void (*HeaderArg)();
+	void (*WriteFunction)(void*, size_t, void *);
+	void (*WriteArg)();
 } gfcrequest_t;
 
 /*
