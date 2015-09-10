@@ -101,6 +101,11 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 	printf("Request %s done writing...\n", fileName);
 }
 
+void ReceiveResponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
+{
+	
+}
+
 void ReadSocketToFile(int clientSocket, char * fileName)
 {
 	// Write incomming stream to file
@@ -252,6 +257,7 @@ int gfc_perform(gfcrequest_t *gfr)
 	SendRequestToServer(gfr, socketDescriptor);
 	
 	// Read response
+	ReceiveResponseFromServer(gfr, socketDescriptor);
 	
 	close(socketDescriptor);
 	
