@@ -15,18 +15,38 @@ typedef enum{
   GF_INVALID
 } gfstatus_t;
 
+typedef enum
+{
+	GET
+} gfmethod_t;
+
+typedef enum
+{
+	GETFILE
+} gfscheme_t;
+
 /*struct for a getfile request*/
 typedef struct
 {
 	char * ServerLocation;
 	char * Path;
 	int Port;
-	struct gfstatus_t Status;
+	gfstatus_t Status;
+	gfmethod_t Method;
+	gfscheme_t Scheme;
 	void (*HeaderFunction)(void*, size_t, void *);
 	void (*HeaderArg)();
 	void (*WriteFunction)(void*, size_t, void *);
 	void (*WriteArg)();
+	response_message_t Response;
 } gfcrequest_t;
+
+typedef struct
+{
+	int Length;
+	struct gfstatus_t Status;
+	char *Header;	
+} response_message_t;
 
 /*
  * Returns the string associated with the input status

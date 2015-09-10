@@ -12,6 +12,136 @@
 
 /* Helper methods ====================================== */
 
+void sigchld_handler(int s)
+{
+    int saved_errno = errno;
+
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+
+    errno = saved_errno;
+}
+
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET)
+    {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+void ReapZombieProcesses()
+{
+	// Reap zombie processes
+	struct sigaction sa;
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    {
+        perror("Error reaping processes\n");
+        exit(1);
+    }
+}
+
+char* BuildRequestString(gfcrequest_t *gfr)
+{
+	char *scheme = SchemeToString(gfr->Scheme);
+	char *method = MethodToString(gfr->Method);
+	char *path = gfr->Path;
+	char *terminator = "\r\n\r\n";
+	
+	char serializedBuffer[sizeof(scheme) + sizeof(method) + sizeof(path) + sizeof(terminator)];
+	
+	memset(serializedBuffer, '\0', sizeof(serializedBuffer));
+	strcpy(serializedBuffer, scheme);
+	strcat(serializedBuffer, method);
+	strcat(serializedBuffer, path);
+	strcat(serializedBuffer, terminator);
+	
+	return serializedBuffer;
+}
+
+void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
+{
+	// Send request to server
+	if(gfr == null)
+	{
+		printf(stderr, "Invalid request\n");
+		exit(1);
+	}
+	
+	char *requestBuffer = BuildRequestString(gfr);
+	
+	long numbytes = sizeof(requestBuffer);
+	long bytesLeft = numbytes;
+	
+	printf("Writing %lu bytes to socket\n", bytesLeft);
+	
+	while(bytesLeft >= 1)
+	{
+		char *subsetArray;
+		
+		memset( subsetArray, '\0', sizeof(char)*BUFSIZE );
+		subsetArray = &requestBuffer[numbytes - bytesLeft];
+		
+		if(bytesLeft < BUFSIZE)
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft, 0);
+		}
+		else
+		{
+			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
+		}
+		printf("%lu bytes left...\n", bytesLeft);
+	}
+	
+	printf("Request %s done writing...\n", fileName);
+}
+
+void ReadSocketToFile(int clientSocket, char * fileName)
+{
+	// Write incomming stream to file
+	char fileStream[BUFSIZE];
+	int numbytes;
+	FILE *fp;
+		
+	fp = fopen(fileName,"a");
+	if (fp == NULL)
+	{
+		fprintf(stderr, "Can't open input file in!\n");
+		exit(1);
+	}
+		
+	// Write stream in chunks based on BUFSIZE
+	do
+	{
+		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
+		numbytes = recv(clientSocket, fileStream, BUFSIZE, 0);
+		if(numbytes <= 0)
+		{
+			printf("End of message received\n");
+		}
+		else
+		{
+			if(numbytes < BUFSIZE)
+			{
+				fwrite(fileStream, sizeof(char), numbytes, fp);
+			}
+			else
+			{
+				fwrite(fileStream, sizeof(char), BUFSIZE, fp);
+			}
+			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
+		}
+		
+	}while(!feof(fp) && numbytes > 0);
+	
+	fclose(fp);
+}
+
 int ConnectToServer(char *hostName, char *portNo)
 {
 	int socketDescriptor;
@@ -119,27 +249,93 @@ int gfc_perform(gfcrequest_t *gfr)
 	int socketDescriptor = ConnectToServer(gfr->ServerLocation, gfr->Port);
 	
 	// Send request to server
+	SendRequestToServer(gfr, socketDescriptor);
 	
 	// Read response
 	
-	// Write response to client
+	close(socketDescriptor);
+	
+	response_message_t response = ParseRawResponse();
+	
+	// Call header callback methods
+	
+	// Call write callback methods
+	
+	
+}
+
+response_message_t ParseRawResponse(char *responseString)
+{
+	// Return response structure from string
 }
 
 gfstatus_t gfc_get_status(gfcrequest_t *gfr)
 {
-	
+	return gfr->Response.Status;
 }
 
 char* gfc_strstatus(gfstatus_t status)
 {
-
+	switch(status)
+	{
+		case GF_OK:
+			return "GF_OK";
+			break;
+		case GF_FILE_NOT_FOUND:
+			return "GF_FILE_NOT_FOUND";
+			break;
+		case GF_ERROR:
+			return "GF_ERROR";
+			break;
+		case GF_INVALID:
+			return "GF_INVALID";
+			break;
+		default:
+			printf("Invalid status, unable to stringize %d.", status);
+			exit(-1);
+	}
 }
 
+char* SchemeToString(gfscheme_t scheme)
+{
+	switch(scheme)
+	{
+		case GETFILE:
+			return "GETFILE";
+			break;
+		default:
+			printf("Invalid scheme, unable to stringize %d.", scheme);
+			exit(-1);
+	}
+}
+
+char* MethodToString(gfmethod_t method)
+{
+	switch(method)
+	{
+		case GET:
+			return "GET";
+			break;
+		default:
+			printf("Invalid method, unable to stringize %d.", method);
+			exit(-1);
+	}
+}
+
+/*
+ * Returns the length of the file as indicated by the response header.
+ * Value is not specified if the response status is not OK.
+ */
 size_t gfc_get_filelen(gfcrequest_t *gfr)
 {
-
+	return gfr->Response.Length;
 }
 
+/*
+ * Returns actual number of bytes received before the connection is closed.
+ * This may be distinct from the result of gfc_get_filelen when the response 
+ * status is OK but the connection is reset before the transfer is completed.
+ */
 size_t gfc_get_bytesreceived(gfcrequest_t *gfr)
 {
 
