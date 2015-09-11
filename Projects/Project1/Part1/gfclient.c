@@ -101,50 +101,55 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 	printf("Request %s done writing...\n", fileName);
 }
 
-void ReceiveResponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
-{
-	
-}
-
-void ReadSocketToFile(int clientSocket, char * fileName)
-{
-	// Write incomming stream to file
-	char fileStream[BUFSIZE];
-	int numbytes;
-	FILE *fp;
-		
-	fp = fopen(fileName,"a");
-	if (fp == NULL)
+void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
+{	
+	if (gfr == NULL)
 	{
-		fprintf(stderr, "Can't open input file in!\n");
+		printf(stderr, "Invalid request.\n");
 		exit(1);
 	}
-		
-	// Write stream in chunks based on BUFSIZE
+	
+	int numbytes;	
+	
+	// TODO: Call header callback methods
+	
 	do
 	{
-		memset( fileStream, '\0', sizeof(char)*BUFSIZE );
-		numbytes = recv(clientSocket, fileStream, BUFSIZE, 0);
+		// Write stream in chunks based on BUFSIZE
+		char incomingStream[BUFSIZE];
+		memset(incomingStream, '\0', sizeof(char)*BUFSIZE);
+		
+		numbytes = recv(socketDescriptor, incomingStream, BUFSIZE, 0);
+		
 		if(numbytes <= 0)
 		{
 			printf("End of message received\n");
 		}
 		else
 		{
-			if(numbytes < BUFSIZE)
-			{
-				fwrite(fileStream, sizeof(char), numbytes, fp);
-			}
-			else
-			{
-				fwrite(fileStream, sizeof(char), BUFSIZE, fp);
-			}
-			printf("Recieved %d bytes of file %s, [%s]\n", numbytes, fileName, fileStream);
+			printf("Recieved %d bytes\n", numbytes);
 		}
 		
-	}while(!feof(fp) && numbytes > 0);
+		gfr->WriteFunction(incomingStream, numbytes, gfr->WriteArg());
+		
+		//~ // Merge received array with response array
+		//~ char *subsetArray;
+		//~ memset(subsetArray, '\0', sizeof(char) * numbytes);
+		//~ memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
+		//~ responseBuffer = MergeArrays(responseBuffer, subsetArray);
+		
+	}while(numbytes > 0);
+	//~ 
+	//~ gfr->Response = ParseRawResponse(responseBuffer);
+}
+
+char* MergeArrays(char *array1, char *array2)
+{
+	char returnArray[sizeof(array1) + sizeof(array2)];
+	memcpy(returnArray, array1, sizeof(char));
+	memcpy(returnArray + sizeof(array1), array2, sizeof(char));
 	
-	fclose(fp);
+	return returnArray;
 }
 
 int ConnectToServer(char *hostName, char *portNo)
@@ -257,22 +262,9 @@ int gfc_perform(gfcrequest_t *gfr)
 	SendRequestToServer(gfr, socketDescriptor);
 	
 	// Read response
-	ReceiveResponseFromServer(gfr, socketDescriptor);
+	ReceiveReponseFromServer(gfr, socketDescriptor);
 	
 	close(socketDescriptor);
-	
-	response_message_t response = ParseRawResponse();
-	
-	// Call header callback methods
-	
-	// Call write callback methods
-	
-	
-}
-
-response_message_t ParseRawResponse(char *responseString)
-{
-	// Return response structure from string
 }
 
 gfstatus_t gfc_get_status(gfcrequest_t *gfr)

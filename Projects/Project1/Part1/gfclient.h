@@ -78,7 +78,7 @@ void gfc_set_port(gfcrequest_t *gfr, unsigned short port);
 
 /*
  * Sets the callback for received header.  The registered callback
- * will receive a pointer the header of the response, the length 
+ * will receive a pointer to the header of the response, the length 
  * of the header response as it's second argument (don't assume that
  * this is null-terminated), and the pointer registered with 
  * gfc_set_headerarg (or NULL if not specified) as the third argument.
@@ -96,7 +96,7 @@ void gfc_set_headerarg(gfcrequest_t *gfr, void *headerarg);
 
 /*
  * Sets the callback for received chunks of the body.  The registered 
- * callback will receive a pointer the chunk, the length of the chunk
+ * callback will receive a pointer to the chunk, the length of the chunk
  * as it's second argument (don't assume that this is null-terminated),
  * and the pointer registered with gfc_set_writearg (or NULL if not 
  * specified) as the third argument.
