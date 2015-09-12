@@ -10,6 +10,9 @@
 
 #include "gfclient.h"
 
+#define HEADER_FOUND 1;
+#define HEADER_NOT_FOUND 0;
+
 /* Helper methods ====================================== */
 
 void sigchld_handler(int s)
@@ -44,6 +47,11 @@ void ReapZombieProcesses()
         perror("Error reaping processes\n");
         exit(1);
     }
+}
+
+response_message_t ParseHeaderResponse(char *headerStr)
+{
+	char *header = strndup(headerStr, strstr(headerStr, "\r\n\r\n"));
 }
 
 char* BuildRequestString(gfcrequest_t *gfr)
@@ -110,8 +118,11 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 	}
 	
 	int numbytes;	
+	int headerReceived = HEADER_NOT_FOUND;
 	
 	// TODO: Call header callback methods
+	
+	char *headerBuffer;
 	
 	do
 	{
@@ -128,15 +139,30 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 		else
 		{
 			printf("Recieved %d bytes\n", numbytes);
+			
+			if(headerReceived == HEADER_NOT_FOUND)
+			{
+				// Merge received array with header array
+				char *subsetArray;
+				memset(subsetArray, '\0', sizeof(char) * numbytes);
+				memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
+				headerBuffer = MergeArrays(headerBuffer, subsetArray);
+				
+				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
+				{
+					headerReceived = HEADER_FOUND;
+					// TODO: Extract header
+					
+					// Write header buffer to HeaderFunction()
+					
+					// Write remaining characters to WriteFunction()
+				}
+			}
+			else
+			{
+				gfr->WriteFunction(incomingStream, numbytes, gfr->WriteArg());
+			}
 		}
-		
-		gfr->WriteFunction(incomingStream, numbytes, gfr->WriteArg());
-		
-		//~ // Merge received array with response array
-		//~ char *subsetArray;
-		//~ memset(subsetArray, '\0', sizeof(char) * numbytes);
-		//~ memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
-		//~ responseBuffer = MergeArrays(responseBuffer, subsetArray);
 		
 	}while(numbytes > 0);
 	//~ 
