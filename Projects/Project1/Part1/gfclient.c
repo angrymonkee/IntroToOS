@@ -240,7 +240,7 @@ int ConnectToServer(char *hostName, char *portNo)
 
 gfcrequest_t *gfc_create()
 {
-	struct gfcrequest_ ret = malloc(sizeof(gfcrequest_));
+	gfcrequest_t ret = malloc(sizeof(gfcrequest_t));
 	return ret;
 }
 

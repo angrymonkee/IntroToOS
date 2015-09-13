@@ -30,7 +30,7 @@ typedef struct
 {
 	char * ServerLocation;
 	char * Path;
-	int Port;
+	unsigned short Port;
 	gfstatus_t Status;
 	gfmethod_t Method;
 	gfscheme_t Scheme;

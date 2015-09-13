@@ -15,7 +15,14 @@ typedef int gfstatus_t;
 #define  GF_FILE_NOT_FOUND 400
 #define  GF_ERROR 500
 
-typedef struct gfserver_t gfserver_t;
+typedef struct gfserver_t 
+{
+	unsigned short Port;
+	int MaxNumberConnections;
+	void (*Handler)(gfcontext_t *, char *, void*);
+	void (*HandlerArg)();
+}gfserver_t;
+
 typedef struct gfcontext_t gfcontext_t;
 
 /* 
