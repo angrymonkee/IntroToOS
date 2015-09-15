@@ -8,25 +8,26 @@
 
 #include <stdlib.h>
 
-typedef enum{
+typedef enum gfstatus_t
+{
   GF_OK,
   GF_FILE_NOT_FOUND,
   GF_ERROR,
   GF_INVALID
 } gfstatus_t;
 
-typedef enum
+typedef enum gfmethod_t
 {
 	GET
 } gfmethod_t;
 
-typedef enum
+typedef enum gfscheme_t
 {
 	GETFILE
 } gfscheme_t;
 
 /*struct for a getfile request*/
-typedef struct
+typedef struct gfcrequest_t
 {
 	char * ServerLocation;
 	char * Path;
@@ -41,7 +42,7 @@ typedef struct
 	response_message_t Response;
 } gfcrequest_t;
 
-typedef struct
+typedef struct response_message_t
 {
 	int Length;
 	struct gfstatus_t Status;

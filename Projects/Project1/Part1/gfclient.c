@@ -9,6 +9,7 @@
 #include <netdb.h>
 
 #include "gfclient.h"
+#include "Utils.c"
 
 #define HEADER_FOUND 1;
 #define HEADER_NOT_FOUND 0;
@@ -169,14 +170,14 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 	//~ gfr->Response = ParseRawResponse(responseBuffer);
 }
 
-char* MergeArrays(char *array1, char *array2)
-{
-	char returnArray[sizeof(array1) + sizeof(array2)];
-	memcpy(returnArray, array1, sizeof(char));
-	memcpy(returnArray + sizeof(array1), array2, sizeof(char));
-	
-	return returnArray;
-}
+//~ char* MergeArrays(char *array1, char *array2)
+//~ {
+	//~ char returnArray[sizeof(array1) + sizeof(array2)];
+	//~ memcpy(returnArray, array1, sizeof(char));
+	//~ memcpy(returnArray + sizeof(array1), array2, sizeof(char));
+	//~ 
+	//~ return returnArray;
+//~ }
 
 int ConnectToServer(char *hostName, char *portNo)
 {
@@ -241,6 +242,8 @@ int ConnectToServer(char *hostName, char *portNo)
 gfcrequest_t *gfc_create()
 {
 	gfcrequest_t ret = malloc(sizeof(gfcrequest_t));
+	ret.Scheme = GETFILE;
+	ret.Method = GET;
 	return ret;
 }
 

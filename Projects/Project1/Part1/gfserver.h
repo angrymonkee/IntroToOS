@@ -9,11 +9,25 @@
 
 #define MAX_REQUEST_LEN 128
 
-typedef int gfstatus_t;
+//~ typedef int gfstatus_t;
 
 #define  GF_OK 200
 #define  GF_FILE_NOT_FOUND 400
 #define  GF_ERROR 500
+
+
+
+typedef enum gfstatus_t
+{
+  GF_OK,
+  GF_FILE_NOT_FOUND,
+  GF_ERROR
+} gfstatus_t;
+
+typedef enum gfscheme_t
+{
+	GETFILE
+} gfscheme_t;
 
 typedef struct gfserver_t 
 {
@@ -23,7 +37,11 @@ typedef struct gfserver_t
 	void (*HandlerArg)();
 }gfserver_t;
 
-typedef struct gfcontext_t gfcontext_t;
+typedef struct gfcontext_t 
+{
+	int SocketDescriptor;
+}
+gfcontext_t;
 
 /* 
  * This function must be the first one called as part of 
