@@ -50,10 +50,12 @@ void ReapZombieProcesses()
     }
 }
 
-response_message_t ParseHeaderResponse(char *headerStr)
-{
-	char *header = strndup(headerStr, strstr(headerStr, "\r\n\r\n"));
-}
+//~ response_message_t ParseHeaderResponse(char *headerStr)
+//~ {
+	//~ char *header = strndup(headerStr, strstr(headerStr, "\r\n\r\n"));
+	//~ 
+	//~ // TODO: Finish this
+//~ }
 
 char* BuildRequestString(gfcrequest_t *gfr)
 {

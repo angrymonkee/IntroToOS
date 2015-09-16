@@ -1,6 +1,23 @@
+#include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <netdb.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <time.h>
+
 #include "gfserver.h"
 #include "Utils.c"
+
+#define BUFSIZE 4096
 
 /* 
  * Modify this file to implement the interface specified in
@@ -118,9 +135,6 @@ char *StatusToString(gfstatus_t status)
 		case GF_ERROR:
 			return "GF_ERROR";
 			break;
-		case GF_INVALID:
-			return "GF_INVALID";
-			break;
 		default:
 			printf("Invalid status, unable to stringize %d.", status);
 			exit(-1);
@@ -142,9 +156,9 @@ char* SchemeToString(gfscheme_t scheme)
 
 void SendToSocket(char *buffer, int socketDescriptor)
 {
-	if(buffer == null && sizeof(buffer) > 0)
+	if(buffer == NULL && sizeof(buffer) > 0)
 	{
-		printf(stderr, "No data to send over socket\n");
+		printf("No data to send over socket\n");
 		exit(1);
 	}
 	
@@ -199,7 +213,7 @@ void *ReceiveFromSocket(int socketDescriptor)
 			char *subsetArray;
 			memset(subsetArray, '\0', sizeof(char) * numbytes);
 			memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
-			buffer = MergeArrays(buffer, subsetArray);
+			MergeArrays(buffer, subsetArray);
 		}
 		
 	}while(numbytes > 0);
@@ -207,20 +221,22 @@ void *ReceiveFromSocket(int socketDescriptor)
 	return buffer;
 }
 
-char* BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
+char* BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, char *serializedBuffer)
 {
-	char *scheme = SchemeToString(GETFILE);
-	char *status = StatusToString(status);
+	char *schemeStr = SchemeToString(GETFILE);
+	char *statusStr = StatusToString(status);
 	char *terminator = "\r\n\r\n";
 	
 	if(file_len > 0)
 	{
-		char *length = file_len;
-		char serializedBuffer[sizeof(scheme) + sizeof(status) + sizeof(length) + sizeof(terminator)];
+		char *length = (char *)file_len;
+		int bufferSize = sizeof(schemeStr) + sizeof(statusStr) + sizeof(length) + sizeof(terminator);
+		int bufferLength = bufferSize / sizeof(char);
+		char *serializedBuffer = malloc(bufferSize);
 		
-		memset(serializedBuffer, '\0', sizeof(serializedBuffer));
-		strcpy(serializedBuffer, scheme);
-		strcat(serializedBuffer, status);
+		memset(serializedBuffer, '\0', bufferLength);
+		strcpy(serializedBuffer, schemeStr);
+		strcat(serializedBuffer, statusStr);
 		strcat(serializedBuffer, length);
 		strcat(serializedBuffer, terminator);
 		
@@ -228,15 +244,69 @@ char* BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 	}
 	else
 	{
-		char serializedBuffer[sizeof(scheme) + sizeof(status) + sizeof(terminator)];
+		int bufferSize = sizeof(schemeStr) + sizeof(statusStr) + sizeof(terminator);
+		int bufferLength = bufferSize / sizeof(char);
+		char *serializedBuffer = malloc(bufferSize);
 		
-		memset(serializedBuffer, '\0', sizeof(serializedBuffer));
-		strcpy(serializedBuffer, scheme);
-		strcat(serializedBuffer, status);
+		memset(serializedBuffer, '\0', bufferLength);
+		strcpy(serializedBuffer, schemeStr);
+		strcat(serializedBuffer, statusStr);
 		strcat(serializedBuffer, terminator);
 		
 		return serializedBuffer;
 	}
+}
+
+
+int IsValidScheme(char *schemeStr)
+{
+	return strcmp(schemeStr, "GETFILE");
+}
+
+int IsValidMethod(char *method)
+{
+	return strcmp(method, "GET");
+}
+
+int IsValidFilePath(char *path)
+{
+	if(strlen(path) > 0 && strcmp(path[0], "/"))
+		return 1;
+	else
+		return 0;
+}
+
+gfcontext_t ParseRequestString(char *request)
+{
+	char *delimiter = " ";
+	char *saveptr;
+	
+	gfcontext_t context = malloc(sizeof(gfcontext_t));
+	context.Scheme = strtok_r(request, delimiter, &saveptr);
+	context.Method = strtok(NULL, delimiter, &saveptr);
+	context.FilePath = strtok(NULL, delimiter, &saveptr);
+	
+	// TODO: Need to fix this to accommodate file paths with spaces
+	
+	if(!IsValidScheme(context.Scheme))
+	{
+		printf("Parsed scheme [%s] is not a known scheme.", context.Scheme);
+		return NULL;
+	}
+	
+	if(!IsValidMethod(context.Method))
+	{
+		printf("Parsed method [%s] is not a known method.", context.Method);
+		return NULL;
+	}
+	
+	if(!IsValidFilePath(context.FilePath))
+	{
+		printf("Parsed file path [%s] is not a known path.", context.FilePath);
+		return NULL;
+	}
+	
+	return context;
 }
 
 ssize_t gfs_sendheader(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
@@ -328,20 +398,18 @@ void gfserver_serve(gfserver_t *gfs)
 			char *incomingRequest = ReceiveFromSocket(clientSocket);
 			
 			// Get path and parse request
-			
-			// Create context and send to handler
-			
-			gfcontext_t context = malloc(sizeof(gfcontext_t));
+			gfcontext_t context = ParseRequestString(incomingRequest);
 			context.SocketDescriptor = clientSocket;
 			
-			gfs->Handler(context, 
+			// Create context and send to handler
+			gfs->Handler(context, context.Path, gfs->HandlerArg());
 			WriteFileToSocket(fileName, clientSocket);
 
+			close(clientSocket);
 			close(listeningSocket);
-			
-            printf("File transmission complete\n");
             
-            close(clientSocket);
+            printf("Requested file complete\n");
+            
             exit(0);
         }
         else
