@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -7,9 +8,17 @@
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <sys/types.h> 
+#include <arpa/inet.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <time.h>
 
 #include "gfclient.h"
 #include "Utils.c"
+
+
+
 
 #define HEADER_FOUND 1;
 #define HEADER_NOT_FOUND 0;
@@ -325,13 +334,12 @@ char* gfc_strstatus(gfstatus_t status)
 	}
 }
 
-char* SchemeToString(gfscheme_t scheme)
+char *SchemeToString(gfscheme_t scheme)
 {
 	switch(scheme)
 	{
 		case GETFILE:
 			return "GETFILE";
-			break;
 		default:
 			printf("Invalid scheme, unable to stringize %d.", scheme);
 			exit(-1);

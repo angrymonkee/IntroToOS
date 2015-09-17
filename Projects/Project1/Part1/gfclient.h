@@ -10,21 +10,31 @@
 
 typedef enum gfstatus_t
 {
-  GF_OK,
-  GF_FILE_NOT_FOUND,
-  GF_ERROR,
-  GF_INVALID
+	NO_STATUS,
+	GF_OK,
+	GF_FILE_NOT_FOUND,
+	GF_ERROR,
+	GF_INVALID
 } gfstatus_t;
 
 typedef enum gfmethod_t
 {
+	NO_METHOD,
 	GET
 } gfmethod_t;
 
 typedef enum gfscheme_t
 {
+	NO_SCHEME,
 	GETFILE
 } gfscheme_t;
+
+typedef struct response_message_t
+{
+	int Length;
+	gfstatus_t Status;
+	char *Header;	
+} response_message_t;
 
 /*struct for a getfile request*/
 typedef struct gfcrequest_t
@@ -41,13 +51,6 @@ typedef struct gfcrequest_t
 	void (*WriteArg)();
 	response_message_t Response;
 } gfcrequest_t;
-
-typedef struct response_message_t
-{
-	int Length;
-	struct gfstatus_t Status;
-	char *Header;	
-} response_message_t;
 
 /*
  * Returns the string associated with the input status

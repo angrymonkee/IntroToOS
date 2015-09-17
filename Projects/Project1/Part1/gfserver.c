@@ -44,7 +44,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int GetListeningSocket(char *portno)
+int GetListeningSocket(unsigned short portno)
 {
 	struct addrinfo socketOptions;
     memset(&socketOptions, 0, sizeof socketOptions);
@@ -55,7 +55,10 @@ int GetListeningSocket(char *portno)
 	// Setting getaddrinfo 'node' to NULL and passing AI_PASSIVE makes
 	// addresses suitable for binding
 	struct addrinfo *serverAddresses;
-    int rv = getaddrinfo(NULL, portno, &socketOptions, &serverAddresses);
+	size_t intLen = sizeof(portno) / sizeof(unsigned short);
+	char portStr[intLen];
+	snprintf(portStr, sizeof(portStr), "%hu", portno);
+    int rv = getaddrinfo(NULL, portStr, &socketOptions, &serverAddresses);
     if (rv != 0) 
     {
         fprintf(stderr, "getaddrinfo did not find address: %s\n", gai_strerror(rv));
@@ -154,6 +157,19 @@ char* SchemeToString(gfscheme_t scheme)
 	}
 }
 
+char* MethodToString(gfmethod_t method)
+{
+	switch(method)
+	{
+		case GET:
+			return "GET";
+			break;
+		default:
+			printf("Invalid method, unable to stringize %d.", method);
+			exit(-1);
+	}
+}
+
 void SendToSocket(char *buffer, int socketDescriptor)
 {
 	if(buffer == NULL && sizeof(buffer) > 0)
@@ -188,10 +204,9 @@ void SendToSocket(char *buffer, int socketDescriptor)
 	printf("Data sent successfully...\n");
 }
 
-void *ReceiveFromSocket(int socketDescriptor)
+void ReceiveFromSocket(int socketDescriptor, char *buffer)
 {	
 	int numbytes;	
-	char *buffer;
 	
 	do
 	{
@@ -210,18 +225,16 @@ void *ReceiveFromSocket(int socketDescriptor)
 			printf("Recieved %d bytes\n", numbytes);
 
 			// Merge received array with header array
-			char *subsetArray;
-			memset(subsetArray, '\0', sizeof(char) * numbytes);
+			char subsetArray[numbytes];
+			memset(subsetArray, '\0', sizeof(subsetArray));
 			memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
 			MergeArrays(buffer, subsetArray);
 		}
 		
 	}while(numbytes > 0);
-
-	return buffer;
 }
 
-char* BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, char *serializedBuffer)
+void BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, char *serializedBuffer)
 {
 	char *schemeStr = SchemeToString(GETFILE);
 	char *statusStr = StatusToString(status);
@@ -232,78 +245,96 @@ char* BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, ch
 		char *length = (char *)file_len;
 		int bufferSize = sizeof(schemeStr) + sizeof(statusStr) + sizeof(length) + sizeof(terminator);
 		int bufferLength = bufferSize / sizeof(char);
-		char *serializedBuffer = malloc(bufferSize);
+		serializedBuffer = realloc(serializedBuffer, bufferSize);
 		
 		memset(serializedBuffer, '\0', bufferLength);
 		strcpy(serializedBuffer, schemeStr);
 		strcat(serializedBuffer, statusStr);
 		strcat(serializedBuffer, length);
 		strcat(serializedBuffer, terminator);
-		
-		return serializedBuffer;
 	}
 	else
 	{
 		int bufferSize = sizeof(schemeStr) + sizeof(statusStr) + sizeof(terminator);
 		int bufferLength = bufferSize / sizeof(char);
-		char *serializedBuffer = malloc(bufferSize);
+		serializedBuffer = realloc(serializedBuffer, bufferSize);
 		
 		memset(serializedBuffer, '\0', bufferLength);
 		strcpy(serializedBuffer, schemeStr);
 		strcat(serializedBuffer, statusStr);
 		strcat(serializedBuffer, terminator);
-		
-		return serializedBuffer;
 	}
 }
 
 
-int IsValidScheme(char *schemeStr)
-{
-	return strcmp(schemeStr, "GETFILE");
-}
-
-int IsValidMethod(char *method)
-{
-	return strcmp(method, "GET");
-}
+//~ int IsValidScheme(char *schemeStr)
+//~ {
+	//~ if(strcmp(schemeStr,"GETFILE"))
+		//~ return 1;
+	//~ else
+		//~ return 0;
+//~ }
+//~ 
+//~ int IsValidMethod(char *method)
+//~ {
+	//~ return strcmp(method, "GET");
+//~ }
 
 int IsValidFilePath(char *path)
 {
-	if(strlen(path) > 0 && strcmp(path[0], "/"))
+	if((int)strlen(path) > 0 && path[0] == '/')
 		return 1;
 	else
 		return 0;
 }
 
-gfcontext_t ParseRequestString(char *request)
+gfscheme_t ParseScheme(char *str)
+{
+	if(strcmp(str, "GETFILE"))
+		return GETFILE;
+	else
+		return NO_SCHEME;
+}
+
+gfmethod_t ParseMetod(char *str)
+{
+	if(strcmp(str, "GET"))
+		return GET;
+	else
+		return NO_METHOD;
+}
+
+gfcontext_t *ParseRequestString(char *request)
 {
 	char *delimiter = " ";
 	char *saveptr;
 	
-	gfcontext_t context = malloc(sizeof(gfcontext_t));
-	context.Scheme = strtok_r(request, delimiter, &saveptr);
-	context.Method = strtok(NULL, delimiter, &saveptr);
-	context.FilePath = strtok(NULL, delimiter, &saveptr);
+	gfcontext_t *context = malloc(sizeof(gfcontext_t));
+	context->Scheme = ParseScheme(strtok_r(request, delimiter, &saveptr));
+	context->Method = ParseMetod(strtok_r(NULL, delimiter, &saveptr));
+	context->FilePath = strtok_r(NULL, delimiter, &saveptr);
 	
 	// TODO: Need to fix this to accommodate file paths with spaces
 	
-	if(!IsValidScheme(context.Scheme))
+	if(context->Scheme == NO_SCHEME)
 	{
-		printf("Parsed scheme [%s] is not a known scheme.", context.Scheme);
-		return NULL;
+		printf("Parsed scheme [%d] is not a known scheme.", context->Scheme);
+		context->Status = GF_ERROR;
+		return context;
 	}
 	
-	if(!IsValidMethod(context.Method))
+	if(context->Method == NO_METHOD)
 	{
-		printf("Parsed method [%s] is not a known method.", context.Method);
-		return NULL;
+		printf("Parsed method [%d] is not a known method.", context->Method);
+		context->Status = GF_ERROR;
+		return context;
 	}
 	
-	if(!IsValidFilePath(context.FilePath))
+	if(!IsValidFilePath(context->FilePath))
 	{
-		printf("Parsed file path [%s] is not a known path.", context.FilePath);
-		return NULL;
+		printf("Parsed file path [%s] is not a known path.", context->FilePath);
+		context->Status = GF_ERROR;
+		return context;
 	}
 	
 	return context;
@@ -313,18 +344,23 @@ ssize_t gfs_sendheader(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 {
 	size_t length = file_len;
 	
-	if(status == GF_FILE_NOT_FOUND || status = GF_ERROR)
+	if(status == GF_FILE_NOT_FOUND || status == GF_ERROR)
 	{
 		length = 0;
 	}
 	
-	char *headerString = BuildHeaderString(ctx, status, length);
+	char *headerString = malloc(0);
+	BuildHeaderString(ctx, status, length, headerString);
 	SendToSocket(headerString, ctx->SocketDescriptor);
+	free(headerString);
+	
+	return (ssize_t)0;
 }
 
 ssize_t gfs_send(gfcontext_t *ctx, void *data, size_t len)
 {
 	SendToSocket(data, ctx->SocketDescriptor);
+	return (ssize_t)0;
 }
 
 void gfs_abort(gfcontext_t *ctx)
@@ -334,8 +370,7 @@ void gfs_abort(gfcontext_t *ctx)
 
 gfserver_t* gfserver_create()
 {
-	gfserver_t ret = malloc(sizeof(gfserver_t));
-	return ret;
+	return malloc(sizeof(gfserver_t));
 }
 
 void gfserver_set_port(gfserver_t *gfs, unsigned short port)
@@ -350,12 +385,12 @@ void gfserver_set_maxpending(gfserver_t *gfs, int max_npending)
 
 void gfserver_set_handler(gfserver_t *gfs, ssize_t (*handler)(gfcontext_t *, char *, void*))
 {
-	gfs->Handler = handler();
+	gfs->Handle = handler;
 }
 
 void gfserver_set_handlerarg(gfserver_t *gfs, void* arg)
 {
-	gfs->HandlerArg = arg();
+	gfs->HandlerArg = arg;
 }
 
 void gfserver_serve(gfserver_t *gfs)
@@ -395,15 +430,15 @@ void gfserver_serve(gfserver_t *gfs)
         if (!fork())
         {
 			// Receive incoming data from client
-			char *incomingRequest = ReceiveFromSocket(clientSocket);
+			char incomingRequest[0];
+			ReceiveFromSocket(clientSocket, incomingRequest);
 			
 			// Get path and parse request
-			gfcontext_t context = ParseRequestString(incomingRequest);
-			context.SocketDescriptor = clientSocket;
+			gfcontext_t *context = ParseRequestString(incomingRequest);
+			context->SocketDescriptor = clientSocket;
 			
 			// Create context and send to handler
-			gfs->Handler(context, context.Path, gfs->HandlerArg());
-			WriteFileToSocket(fileName, clientSocket);
+			gfs->Handle(context, context->FilePath, gfs->HandlerArg);
 
 			close(clientSocket);
 			close(listeningSocket);
@@ -417,6 +452,4 @@ void gfserver_serve(gfserver_t *gfs)
 			close(clientSocket);
 		}
     }
-
-    return 0;
 }

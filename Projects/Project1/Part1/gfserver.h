@@ -1,3 +1,5 @@
+#include <sys/types.h>
+
 #ifndef __GF_SERVER_H__
 #define __GF_SERVER_H__
 
@@ -18,18 +20,21 @@
 
 typedef enum gfstatus_t
 {
-  GF_OK = 20,
-  GF_FILE_NOT_FOUND = 200,
-  GF_ERROR = 500
+	NO_STATUS,
+	GF_OK = 20,
+	GF_FILE_NOT_FOUND = 200,
+	GF_ERROR = 500
 } gfstatus_t;
 
 typedef enum gfscheme_t
 {
+	NO_SCHEME,
 	GETFILE
 } gfscheme_t;
 
 typedef enum gfmethod_t
 {
+	NO_METHOD,
 	GET
 } gfmethod_t;
 
@@ -39,14 +44,17 @@ typedef struct gfcontext_t
 	char *FilePath;
 	gfscheme_t Scheme;
 	gfmethod_t Method;
+	gfstatus_t Status;
 }
 gfcontext_t;
+
+typedef ssize_t (*handler)(gfcontext_t *, char *, void*);
 
 typedef struct gfserver_t 
 {
 	unsigned short Port;
 	int MaxNumberConnections;
-	void (*Handler)(gfcontext_t *, char *, void*);
+	handler Handle;
 	void (*HandlerArg)();
 }gfserver_t;
 
