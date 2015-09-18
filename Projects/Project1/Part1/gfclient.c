@@ -17,13 +17,37 @@
 #include "gfclient.h"
 #include "Utils.c"
 
+#define BUFSIZE 4096
 
-
-
-#define HEADER_FOUND 1;
-#define HEADER_NOT_FOUND 0;
+#define HEADER_FOUND 1
+#define HEADER_NOT_FOUND 0
 
 /* Helper methods ====================================== */
+
+char *SchemeToString(gfscheme_t scheme)
+{
+	switch(scheme)
+	{
+		case GETFILE:
+			return "GETFILE";
+		default:
+			printf("Invalid scheme, unable to stringize %d.", scheme);
+			exit(-1);
+	}
+}
+
+char* MethodToString(gfmethod_t method)
+{
+	switch(method)
+	{
+		case GET:
+			return "GET";
+			break;
+		default:
+			printf("Invalid method, unable to stringize %d.", method);
+			exit(-1);
+	}
+}
 
 void sigchld_handler(int s)
 {
@@ -66,34 +90,35 @@ void ReapZombieProcesses()
 	//~ // TODO: Finish this
 //~ }
 
-char* BuildRequestString(gfcrequest_t *gfr)
+void BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 {
 	char *scheme = SchemeToString(gfr->Scheme);
 	char *method = MethodToString(gfr->Method);
 	char *path = gfr->Path;
 	char *terminator = "\r\n\r\n";
 	
-	char serializedBuffer[sizeof(scheme) + sizeof(method) + sizeof(path) + sizeof(terminator)];
+	int bufferLen = strlen(scheme) + strlen(method) + strlen(path) + strlen(terminator);
 	
-	memset(serializedBuffer, '\0', sizeof(serializedBuffer));
+	serializedBuffer = malloc(bufferLen);
+	bzero(serializedBuffer, bufferLen);
+	
 	strcpy(serializedBuffer, scheme);
 	strcat(serializedBuffer, method);
 	strcat(serializedBuffer, path);
 	strcat(serializedBuffer, terminator);
-	
-	return serializedBuffer;
 }
 
 void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
 	// Send request to server
-	if(gfr == null)
+	if(gfr == NULL)
 	{
-		printf(stderr, "Invalid request\n");
+		printf("Invalid request\n");
 		exit(1);
 	}
 	
-	char *requestBuffer = BuildRequestString(gfr);
+	char requestBuffer[0];
+	BuildRequestString(gfr, requestBuffer);
 	
 	long numbytes = sizeof(requestBuffer);
 	long bytesLeft = numbytes;
@@ -117,15 +142,13 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 		}
 		printf("%lu bytes left...\n", bytesLeft);
 	}
-	
-	printf("Request %s done writing...\n", fileName);
 }
 
 void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 {	
 	if (gfr == NULL)
 	{
-		printf(stderr, "Invalid request.\n");
+		printf("Invalid request.\n");
 		exit(1);
 	}
 	
@@ -158,7 +181,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 				char *subsetArray;
 				memset(subsetArray, '\0', sizeof(char) * numbytes);
 				memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
-				headerBuffer = MergeArrays(headerBuffer, subsetArray);
+				MergeArrays(headerBuffer, subsetArray);
 				
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
@@ -172,7 +195,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 			}
 			else
 			{
-				gfr->WriteFunction(incomingStream, numbytes, gfr->WriteArg());
+				gfr->Write(incomingStream, numbytes, gfr->WriteArg);
 			}
 		}
 		
@@ -252,9 +275,9 @@ int ConnectToServer(char *hostName, char *portNo)
 
 gfcrequest_t *gfc_create()
 {
-	gfcrequest_t ret = malloc(sizeof(gfcrequest_t));
-	ret.Scheme = GETFILE;
-	ret.Method = GET;
+	gfcrequest_t *ret = malloc(sizeof(gfcrequest_t));
+	ret->Scheme = GETFILE;
+	ret->Method = GET;
 	return ret;
 }
 
@@ -275,17 +298,17 @@ void gfc_set_port(gfcrequest_t *gfr, unsigned short port)
 
 void gfc_set_headerfunc(gfcrequest_t *gfr, void (*headerfunc)(void*, size_t, void *))
 {
-	gfr->HeaderFunction = headerfunc();
+	gfr->WriteHeader = headerfunc;
 }
 
 void gfc_set_headerarg(gfcrequest_t *gfr, void *headerarg)
 {
-	gfr->HeaderArg = headerarg();
+	gfr->HeaderArg = headerarg;
 }
 
 void gfc_set_writefunc(gfcrequest_t *gfr, void (*writefunc)(void*, size_t, void *))
 {
-  gfr->WriteFunction = writefunc;
+  gfr->Write = writefunc;
 }
 
 void gfc_set_writearg(gfcrequest_t *gfr, void *writearg)
@@ -296,7 +319,7 @@ void gfc_set_writearg(gfcrequest_t *gfr, void *writearg)
 int gfc_perform(gfcrequest_t *gfr)
 {
 	// Connect socket to server
-	int socketDescriptor = ConnectToServer(gfr->ServerLocation, gfr->Port);
+	int socketDescriptor = ConnectToServer(gfr->ServerLocation, (char *)gfr->Port);
 	
 	// Send request to server
 	SendRequestToServer(gfr, socketDescriptor);
@@ -330,31 +353,6 @@ char* gfc_strstatus(gfstatus_t status)
 			break;
 		default:
 			printf("Invalid status, unable to stringize %d.", status);
-			exit(-1);
-	}
-}
-
-char *SchemeToString(gfscheme_t scheme)
-{
-	switch(scheme)
-	{
-		case GETFILE:
-			return "GETFILE";
-		default:
-			printf("Invalid scheme, unable to stringize %d.", scheme);
-			exit(-1);
-	}
-}
-
-char* MethodToString(gfmethod_t method)
-{
-	switch(method)
-	{
-		case GET:
-			return "GET";
-			break;
-		default:
-			printf("Invalid method, unable to stringize %d.", method);
 			exit(-1);
 	}
 }

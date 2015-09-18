@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h> 
@@ -30,4 +31,11 @@ void MergeArrays(char *destination, char *appendArray)
     {
 		destination[i] = appendArray[i - destinationCount];
     }
+}
+
+void IntToString(int number, char * stringizedNumber)
+{
+	size_t intLen = sizeof(number) / sizeof(unsigned short);
+	stringizedNumber = malloc(intLen);
+	snprintf(stringizedNumber, intLen, "%hu", number);
 }

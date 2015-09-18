@@ -36,6 +36,9 @@ typedef struct response_message_t
 	char *Header;	
 } response_message_t;
 
+typedef void (*headerfunc)(void*, size_t, void *);
+typedef void (*WriteFunction)(void*, size_t, void *);
+
 /*struct for a getfile request*/
 typedef struct gfcrequest_t
 {
@@ -45,9 +48,9 @@ typedef struct gfcrequest_t
 	gfstatus_t Status;
 	gfmethod_t Method;
 	gfscheme_t Scheme;
-	void (*HeaderFunction)(void*, size_t, void *);
+	headerfunc WriteHeader;
 	void (*HeaderArg)();
-	void (*WriteFunction)(void*, size_t, void *);
+	WriteFunction Write;
 	void (*WriteArg)();
 	response_message_t Response;
 } gfcrequest_t;
