@@ -15,7 +15,7 @@
 #include <time.h>
 
 #include "gfserver.h"
-#include "Utils.c"
+#include "utils.h"
 
 #define BUFSIZE 4096
 
@@ -282,7 +282,7 @@ void BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, cha
 
 int IsValidFilePath(char *path)
 {
-	if((int)strlen(path) > 0 && path[0] == '/')
+	if((int)strlen(path) > 0 && strchr(path, '/') == 0)
 		return 1;
 	else
 		return 0;

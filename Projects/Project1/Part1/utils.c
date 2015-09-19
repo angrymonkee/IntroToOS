@@ -9,17 +9,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include "utils.h"
 
 void MergeArrays(char *destination, char *appendArray)
 {
-	//~ char returnArray[sizeof(array1) + sizeof(array2)];
-	//~ memcpy(returnArray, array1, sizeof(char));
-	//~ memcpy(returnArray + sizeof(array1), array2, sizeof(char));
-	//~ 
-	//~ return &returnArray;
-	//~ 
-	//~ 
-	
     int destinationCount = sizeof(destination) / sizeof(char);
     int appendCount = sizeof(appendArray) / sizeof(char);
     int totalCount = destinationCount + appendCount;
@@ -33,9 +26,10 @@ void MergeArrays(char *destination, char *appendArray)
     }
 }
 
-void IntToString(int number, char * stringizedNumber)
+char *IntToString(int number)
 {
 	size_t intLen = sizeof(number) / sizeof(unsigned short);
-	stringizedNumber = malloc(intLen);
+	char *stringizedNumber = malloc(intLen);
 	snprintf(stringizedNumber, intLen, "%hu", number);
+	return stringizedNumber;
 }

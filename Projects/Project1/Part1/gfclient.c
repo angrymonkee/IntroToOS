@@ -15,7 +15,7 @@
 #include <time.h>
 
 #include "gfclient.h"
-#include "Utils.c"
+#include "utils.h"
 
 #define BUFSIZE 4096
 
@@ -155,9 +155,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 	int numbytes;	
 	int headerReceived = HEADER_NOT_FOUND;
 	
-	// TODO: Call header callback methods
-	
-	char *headerBuffer;
+	char headerBuffer[0];
 	
 	do
 	{
@@ -178,40 +176,27 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 			if(headerReceived == HEADER_NOT_FOUND)
 			{
 				// Merge received array with header array
-				char *subsetArray;
+				char subsetArray[sizeof(char) * numbytes];
 				memset(subsetArray, '\0', sizeof(char) * numbytes);
 				memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
 				MergeArrays(headerBuffer, subsetArray);
 				
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
+					gfr->ReceiveHeader(headerBuffer, strlen(headerBuffer), gfr->BuildHeaderArgument);
 					headerReceived = HEADER_FOUND;
-					// TODO: Extract header
 					
-					// Write header buffer to HeaderFunction()
-					
-					// Write remaining characters to WriteFunction()
+					// TODO: Write remaining characters to WriteFunction()
 				}
 			}
 			else
 			{
-				gfr->Write(incomingStream, numbytes, gfr->WriteArg);
+				gfr->ReceiveContent(incomingStream, numbytes, gfr->BuildWriteArgument);
 			}
 		}
 		
 	}while(numbytes > 0);
-	//~ 
-	//~ gfr->Response = ParseRawResponse(responseBuffer);
 }
-
-//~ char* MergeArrays(char *array1, char *array2)
-//~ {
-	//~ char returnArray[sizeof(array1) + sizeof(array2)];
-	//~ memcpy(returnArray, array1, sizeof(char));
-	//~ memcpy(returnArray + sizeof(array1), array2, sizeof(char));
-	//~ 
-	//~ return returnArray;
-//~ }
 
 int ConnectToServer(char *hostName, char *portNo)
 {
@@ -298,36 +283,40 @@ void gfc_set_port(gfcrequest_t *gfr, unsigned short port)
 
 void gfc_set_headerfunc(gfcrequest_t *gfr, void (*headerfunc)(void*, size_t, void *))
 {
-	gfr->WriteHeader = headerfunc;
+	gfr->ReceiveHeader = headerfunc;
 }
 
 void gfc_set_headerarg(gfcrequest_t *gfr, void *headerarg)
 {
-	gfr->HeaderArg = headerarg;
+	gfr->BuildHeaderArgument = headerarg;
 }
 
 void gfc_set_writefunc(gfcrequest_t *gfr, void (*writefunc)(void*, size_t, void *))
 {
-  gfr->Write = writefunc;
+  gfr->ReceiveContent = writefunc;
 }
 
 void gfc_set_writearg(gfcrequest_t *gfr, void *writearg)
 {
-  gfr->WriteArg = writearg;
+  gfr->BuildWriteArgument = writearg;
 }
 
 int gfc_perform(gfcrequest_t *gfr)
 {
-	// Connect socket to server
-	int socketDescriptor = ConnectToServer(gfr->ServerLocation, (char *)gfr->Port);
+	// Connect
+	char *portStr = IntToString(gfr->Port);
+	int socketDescriptor = ConnectToServer(gfr->ServerLocation, portStr);
+	free(portStr);
 	
-	// Send request to server
+	// Request
 	SendRequestToServer(gfr, socketDescriptor);
 	
-	// Read response
+	// Receive
 	ReceiveReponseFromServer(gfr, socketDescriptor);
 	
 	close(socketDescriptor);
+	
+	return 0;
 }
 
 gfstatus_t gfc_get_status(gfcrequest_t *gfr)
@@ -357,23 +346,14 @@ char* gfc_strstatus(gfstatus_t status)
 	}
 }
 
-/*
- * Returns the length of the file as indicated by the response header.
- * Value is not specified if the response status is not OK.
- */
 size_t gfc_get_filelen(gfcrequest_t *gfr)
 {
 	return gfr->Response.Length;
 }
 
-/*
- * Returns actual number of bytes received before the connection is closed.
- * This may be distinct from the result of gfc_get_filelen when the response 
- * status is OK but the connection is reset before the transfer is completed.
- */
 size_t gfc_get_bytesreceived(gfcrequest_t *gfr)
 {
-
+	return gfr->Response.BytesReceived;
 }
 
 void gfc_cleanup(gfcrequest_t *gfr)
