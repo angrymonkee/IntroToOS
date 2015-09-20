@@ -83,33 +83,44 @@ void ReapZombieProcesses()
     }
 }
 
-//~ response_message_t ParseHeaderResponse(char *headerStr)
-//~ {
-	//~ char *header = strndup(headerStr, strstr(headerStr, "\r\n\r\n"));
-	//~ 
-	//~ // TODO: Finish this
-//~ }
-
 void BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 {
+	printf("Building request\n");
+	
 	char *scheme = SchemeToString(gfr->Scheme);
+	printf("Scheme: %s\n", scheme);
+	
 	char *method = MethodToString(gfr->Method);
+	printf("Method: %s\n", method);
+	
 	char *path = gfr->Path;
+	printf("Path: %s\n", path);
+	
 	char *terminator = "\r\n\r\n";
 	
-	int bufferLen = strlen(scheme) + strlen(method) + strlen(path) + strlen(terminator);
+	int spaceSize = 1;
+	int bufferLen = strlen(scheme) + spaceSize + strlen(method) + spaceSize + strlen(path) + spaceSize + strlen(terminator);
+	printf("Buffer length: %d\n", bufferLen);
 	
-	serializedBuffer = malloc(bufferLen);
+	serializedBuffer = realloc(serializedBuffer, (bufferLen + 1) * sizeof(char));
 	bzero(serializedBuffer, bufferLen);
 	
 	strcpy(serializedBuffer, scheme);
+	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, method);
+	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, path);
+	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, terminator);
+	serializedBuffer[bufferLen + 1] = '\0';
+	
+	printf("Buffer contents: %s\n", serializedBuffer);
 }
 
 void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
+	printf("Preparing request for transfer");
+	
 	// Send request to server
 	if(gfr == NULL)
 	{
@@ -123,25 +134,33 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 	long numbytes = sizeof(requestBuffer);
 	long bytesLeft = numbytes;
 	
-	printf("Writing %lu bytes to socket\n", bytesLeft);
+	printf("Writing %ld bytes to socket\n", bytesLeft);
 	
 	while(bytesLeft >= 1)
 	{
-		char *subsetArray;
+		printf("Before memset\n");
+		char subsetArray[BUFSIZE];
+		memset(subsetArray, '\0', sizeof(char) * BUFSIZE);
+		printf("After memset\n");
 		
-		memset( subsetArray, '\0', sizeof(char)*BUFSIZE );
-		subsetArray = &requestBuffer[numbytes - bytesLeft];
+		subsetArray = &requestBuffer[bytesLeft - numbytes];
+		printf("Partial buffer");
 		
 		if(bytesLeft < BUFSIZE)
 		{
+			printf("transmitting bytesleft to server");
 			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft, 0);
 		}
 		else
 		{
+			printf("transmitting BUFSIZE to server");
 			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
 		}
+		
 		printf("%lu bytes left...\n", bytesLeft);
 	}
+	
+	free(requestBuffer);
 }
 
 void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
@@ -198,7 +217,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 	}while(numbytes > 0);
 }
 
-int ConnectToServer(char *hostName, char *portNo)
+int ConnectToServer(char *hostName, unsigned short portNo)
 {
 	int socketDescriptor;
 	
@@ -211,7 +230,8 @@ int ConnectToServer(char *hostName, char *portNo)
     addressOptions.ai_socktype = SOCK_STREAM;
 
 	struct addrinfo *addresses;
-	int status = getaddrinfo(hostName, portNo, &addressOptions, &addresses);
+	char *portStr = IntToString(portNo);
+	int status = getaddrinfo(hostName, portStr, &addressOptions, &addresses);
     if (status != 0) 
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
@@ -219,10 +239,13 @@ int ConnectToServer(char *hostName, char *portNo)
     }
 
     // Connect to first address we can find for hostname
+    char serverAddress[INET6_ADDRSTRLEN];
     struct addrinfo *a; 
     for(a = addresses; a != NULL; a = a->ai_next)
     {
-		printf("Checking address");
+		inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
+    
+		printf("Checking address %s on port %hu\n", serverAddress, portNo);
 		
         if ((socketDescriptor = socket(a->ai_family, a->ai_socktype, a->ai_protocol)) == -1)
 		{
@@ -247,10 +270,10 @@ int ConnectToServer(char *hostName, char *portNo)
     }
     
     // Connect to found address
-	char serverAddress[INET6_ADDRSTRLEN];
-    inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
+	//~ char serverAddress[INET6_ADDRSTRLEN];
+    //~ inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
     
-    printf("Connecting to server at address: %s\n", serverAddress);
+    printf("Connecting to server at address [%s] on port [%hu]\n", serverAddress, portNo);
 
     freeaddrinfo(addresses);
 
@@ -304,9 +327,7 @@ void gfc_set_writearg(gfcrequest_t *gfr, void *writearg)
 int gfc_perform(gfcrequest_t *gfr)
 {
 	// Connect
-	char *portStr = IntToString(gfr->Port);
-	int socketDescriptor = ConnectToServer(gfr->ServerLocation, portStr);
-	free(portStr);
+	int socketDescriptor = ConnectToServer(gfr->ServerLocation, gfr->Port);
 	
 	// Request
 	SendRequestToServer(gfr, socketDescriptor);

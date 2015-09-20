@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 		gfc_set_writefunc(gfr, writecb);
 		gfc_set_writearg(gfr, file);
 
-		fprintf(stdout, "Requesting %s%s\n", server, req_path);
+		fprintf(stdout, "Requesting %s %s\n", server, req_path);
 
 		if ( 0 > (returncode = gfc_perform(gfr)))
 		{

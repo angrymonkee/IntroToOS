@@ -28,8 +28,31 @@ void MergeArrays(char *destination, char *appendArray)
 
 char *IntToString(int number)
 {
-	size_t intLen = sizeof(number) / sizeof(unsigned short);
-	char *stringizedNumber = malloc(intLen);
-	snprintf(stringizedNumber, intLen, "%hu", number);
+	printf("number: %d\n", number);
+	int intLen = NumDigits(number);
+	printf("number length: %d\n", intLen);
+	
+	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
+	sprintf(stringizedNumber, "%d", number);
+	
+	stringizedNumber[intLen + 1] = '\0';
+	
+	printf("stringized number: %s\n", stringizedNumber);
+	
 	return stringizedNumber;
+}
+
+int NumDigits(int num)
+{
+	int count = 0;	
+	if (num == 0)
+		count++;
+		
+	while (num !=0)
+	{
+		count++;
+		num/=10;
+	}
+	
+	return count; 
 }

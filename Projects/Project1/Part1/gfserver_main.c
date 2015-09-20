@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   gfserver_t *gfs;
 
   // Parse and set command line arguments
-  while ((option_char = getopt(argc, argv, "p:t:s:h")) != -1) {
+  while ((option_char = getopt(argc, argv, "p:c:h")) != -1) {
     switch (option_char) {
       case 'p': // listen-port
         port = atoi(optarg);

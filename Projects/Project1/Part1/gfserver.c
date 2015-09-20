@@ -44,7 +44,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int GetListeningSocket(unsigned short portno)
+int ConnectToListeningSocket(unsigned short portno)
 {
 	struct addrinfo socketOptions;
     memset(&socketOptions, 0, sizeof socketOptions);
@@ -55,9 +55,8 @@ int GetListeningSocket(unsigned short portno)
 	// Setting getaddrinfo 'node' to NULL and passing AI_PASSIVE makes
 	// addresses suitable for binding
 	struct addrinfo *serverAddresses;
-	size_t intLen = sizeof(portno) / sizeof(unsigned short);
-	char portStr[intLen];
-	snprintf(portStr, sizeof(portStr), "%hu", portno);
+	char *portStr = IntToString(portno);
+
     int rv = getaddrinfo(NULL, portStr, &socketOptions, &serverAddresses);
     if (rv != 0) 
     {
@@ -73,7 +72,7 @@ int GetListeningSocket(unsigned short portno)
     {
         if ((listeningSocket = socket(foundAddress->ai_family, foundAddress->ai_socktype, foundAddress->ai_protocol)) == -1) 
 		{
-            perror("Error setting up listening socket\n");
+            perror("Error setting up listening socket");
             continue;
         }
 
@@ -83,7 +82,7 @@ int GetListeningSocket(unsigned short portno)
 		// 		type in the system (restarts on closed/killed process)
         if (setsockopt(listeningSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
         {
-            perror("Error setting listening socket options\n");
+            perror("Error setting listening socket options");
             exit(1);
         }
 
@@ -91,21 +90,26 @@ int GetListeningSocket(unsigned short portno)
         if (bind(listeningSocket, foundAddress->ai_addr, foundAddress->ai_addrlen) == -1)
         {
             close(listeningSocket);
-            perror("server: bind");
+            perror("server: bind\n");
             continue;
         }
 
         break;
     }
-
-	// Free my addresses
-    freeaddrinfo(serverAddresses);
     
 	if (foundAddress == NULL) 
     {
         fprintf(stderr, "Failed to find address for binding\n");
         exit(1);
     }
+    
+    char serverAddress[INET6_ADDRSTRLEN];
+	inet_ntop(foundAddress->ai_family, get_in_addr((struct sockaddr *)foundAddress->ai_addr), serverAddress, sizeof serverAddress);
+		
+	printf("Found address [%s], connecting on port [%d]\n", serverAddress, portno);
+    
+	// Free my addresses
+    freeaddrinfo(serverAddresses);
     
     return listeningSocket;
 }
@@ -216,6 +220,8 @@ void ReceiveFromSocket(int socketDescriptor, char *buffer)
 		
 		numbytes = recv(socketDescriptor, incomingStream, BUFSIZE, 0);
 		
+		printf("Incoming stream...\n%s", incomingStream);
+		
 		if(numbytes <= 0)
 		{
 			printf("End of message received\n");
@@ -309,6 +315,8 @@ gfcontext_t *ParseRequestString(char *request)
 	char *delimiter = " ";
 	char *saveptr;
 	
+	printf("Parsing request string [%s]", request);
+	
 	gfcontext_t *context = malloc(sizeof(gfcontext_t));
 	context->Scheme = ParseScheme(strtok_r(request, delimiter, &saveptr));
 	context->Method = ParseMetod(strtok_r(NULL, delimiter, &saveptr));
@@ -396,7 +404,7 @@ void gfserver_set_handlerarg(gfserver_t *gfs, void* arg)
 void gfserver_serve(gfserver_t *gfs)
 {
 	// Get listening socket connection
-	int listeningSocket = GetListeningSocket(gfs->Port);
+	int listeningSocket = ConnectToListeningSocket(gfs->Port);
     if (listen(listeningSocket, gfs->MaxNumberConnections) == -1)
     {
         perror("Error listening for connections\n");
@@ -415,7 +423,6 @@ void gfserver_serve(gfserver_t *gfs)
     {
         socklen_t addressLength = sizeof clientAddress;
         clientSocket = accept(listeningSocket, (struct sockaddr *)&clientAddress, &addressLength);
-
         if (clientSocket == -1) 
         {
             perror("accept");
