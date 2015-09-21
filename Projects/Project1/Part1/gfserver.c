@@ -17,7 +17,7 @@
 #include "gfserver.h"
 #include "utils.h"
 
-#define BUFSIZE 4096
+#define BUFSIZE 15
 
 /* 
  * Modify this file to implement the interface specified in
@@ -208,9 +208,11 @@ void SendToSocket(char *buffer, int socketDescriptor)
 	printf("Data sent successfully...\n");
 }
 
-void ReceiveFromSocket(int socketDescriptor, char *buffer)
+char *ReceiveRequest(int socketDescriptor)
 {	
 	int numbytes;	
+	char *buffer = malloc(sizeof(char));
+	bzero(buffer, 1);
 	
 	do
 	{
@@ -229,15 +231,20 @@ void ReceiveFromSocket(int socketDescriptor, char *buffer)
 		else
 		{
 			printf("Recieved %d bytes\n", numbytes);
-
-			// Merge received array with header array
-			char subsetArray[numbytes];
-			memset(subsetArray, '\0', sizeof(subsetArray));
-			memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
-			MergeArrays(buffer, subsetArray);
+			buffer = MergeArrays(buffer, incomingStream);
 		}
 		
-	}while(numbytes > 0);
+	}while(numbytes > 0 && !(strstr(buffer, "\r\n\r\n")));
+		
+	if(strlen(buffer) > 1)
+	{	
+		printf("return buffer");
+		return buffer;
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 void BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len, char *serializedBuffer)
@@ -296,33 +303,34 @@ int IsValidFilePath(char *path)
 
 gfscheme_t ParseScheme(char *str)
 {
-	if(strcmp(str, "GETFILE"))
+	if(strcmp(str, "GETFILE") == 0)
 		return GETFILE;
 	else
 		return NO_SCHEME;
 }
 
-gfmethod_t ParseMetod(char *str)
+gfmethod_t ParseMethod(char *str)
 {
-	if(strcmp(str, "GET"))
+	if(strcmp(str, "GET") == 0)
 		return GET;
 	else
 		return NO_METHOD;
 }
 
-gfcontext_t *ParseRequestString(char *request)
+gfcontext_t *BuildContextFromRequestString(char *request)
 {
 	char *delimiter = " ";
 	char *saveptr;
 	
-	printf("Parsing request string [%s]", request);
+	printf("Parsing request string [%s]\n", request);
 	
 	gfcontext_t *context = malloc(sizeof(gfcontext_t));
 	context->Scheme = ParseScheme(strtok_r(request, delimiter, &saveptr));
-	context->Method = ParseMetod(strtok_r(NULL, delimiter, &saveptr));
+	context->Method = ParseMethod(strtok_r(NULL, delimiter, &saveptr));
 	context->FilePath = strtok_r(NULL, delimiter, &saveptr);
 	
 	// TODO: Need to fix this to accommodate file paths with spaces
+	printf("FilePath: %s\n", context->FilePath);
 	
 	if(context->Scheme == NO_SCHEME)
 	{
@@ -344,6 +352,7 @@ gfcontext_t *ParseRequestString(char *request)
 		context->Status = GF_ERROR;
 		return context;
 	}
+	
 	
 	return context;
 }
@@ -436,17 +445,20 @@ void gfserver_serve(gfserver_t *gfs)
 
         if (!fork())
         {
-			// Receive incoming data from client
-			char incomingRequest[0];
-			ReceiveFromSocket(clientSocket, incomingRequest);
+			char *incomingRequest = ReceiveRequest(clientSocket);
+			printf("Request: %s\n", incomingRequest);
 			
-			// Get path and parse request
-			gfcontext_t *context = ParseRequestString(incomingRequest);
-			context->SocketDescriptor = clientSocket;
+			if(incomingRequest)
+			{
+				// Get path and parse request
+				gfcontext_t *context = BuildContextFromRequestString(incomingRequest);
+				context->SocketDescriptor = clientSocket;
+				
+				// Create context and send to handler
+				gfs->Handle(context, context->FilePath, gfs->HandlerArg);
+			}
 			
-			// Create context and send to handler
-			gfs->Handle(context, context->FilePath, gfs->HandlerArg);
-
+			free(incomingRequest);
 			close(clientSocket);
 			close(listeningSocket);
             

@@ -11,19 +11,25 @@
 
 #include "utils.h"
 
-void MergeArrays(char *destination, char *appendArray)
+char *MergeArrays(char *destination, char *append)
 {
-    int destinationCount = sizeof(destination) / sizeof(char);
-    int appendCount = sizeof(appendArray) / sizeof(char);
+    int destinationCount = strlen(destination);
+    int appendCount = strlen(append);
     int totalCount = destinationCount + appendCount;
     
-    destination = realloc(destination, sizeof(appendArray));
+    printf("Destination count %d\n", destinationCount);
+    printf("Append count %d\n", appendCount);
+    printf("Total count %d\n", totalCount);
     
-    int i;
-    for (i = destinationCount; i < totalCount; i++) 
-    {
-		destination[i] = appendArray[i - destinationCount];
-    }
+	char *newArray = malloc((totalCount + 1) * sizeof(char));
+	bzero(newArray, totalCount);
+	
+	memcpy(newArray, destination, destinationCount * sizeof(char));
+	memcpy(newArray + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+	newArray[totalCount] = '\0';
+	
+	printf("Merged array: %s\n", newArray);
+	return newArray;
 }
 
 char *IntToString(int number)
@@ -55,4 +61,21 @@ int NumDigits(int num)
 	}
 	
 	return count; 
+}
+
+char *TakeChars(char *array, int startIndex, int endIndex)
+{
+	int arrayLen = endIndex - startIndex;
+	char *subArray = malloc(arrayLen * sizeof(char));
+	bzero(subArray, arrayLen * sizeof(char));
+	
+	int i;
+	int subIndex = 0;
+	for(i = startIndex; startIndex <= endIndex; i++)
+	{
+		subArray[subIndex] = array[i];
+		subIndex++;
+	}
+	
+	return subArray;
 }

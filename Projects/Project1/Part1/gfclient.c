@@ -17,7 +17,7 @@
 #include "gfclient.h"
 #include "utils.h"
 
-#define BUFSIZE 4096
+#define BUFSIZE 15
 
 #define HEADER_FOUND 1
 #define HEADER_NOT_FOUND 0
@@ -83,7 +83,7 @@ void ReapZombieProcesses()
     }
 }
 
-void BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
+int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 {
 	printf("Building request\n");
 	
@@ -115,51 +115,54 @@ void BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	serializedBuffer[bufferLen + 1] = '\0';
 	
 	printf("Buffer contents: %s\n", serializedBuffer);
+	
+	return bufferLen;
 }
 
 void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
 	printf("Preparing request for transfer");
 	
-	// Send request to server
 	if(gfr == NULL)
 	{
 		printf("Invalid request\n");
 		exit(1);
 	}
 	
-	char requestBuffer[0];
-	BuildRequestString(gfr, requestBuffer);
+	char *requestBuffer = malloc(sizeof(char));
+	int requestLen = BuildRequestString(gfr, requestBuffer);
 	
-	long numbytes = sizeof(requestBuffer);
+	long numbytes = requestLen * sizeof(char);
 	long bytesLeft = numbytes;
 	
 	printf("Writing %ld bytes to socket\n", bytesLeft);
 	
 	while(bytesLeft >= 1)
 	{
-		printf("Before memset\n");
-		char subsetArray[BUFSIZE];
-		memset(subsetArray, '\0', sizeof(char) * BUFSIZE);
-		printf("After memset\n");
+		//~ printf("Before take");
+		//~ char *subsetArray = TakeChars(requestBuffer, (numbytes - bytesLeft) / sizeof(char), requestLen);
+		//~ printf("Subset taken");
 		
-		subsetArray = &requestBuffer[bytesLeft - numbytes];
-		printf("Partial buffer");
+		char *subsetArray = malloc(BUFSIZE * sizeof(char));
+		memset(subsetArray, '\0', BUFSIZE * sizeof(char));
+		subsetArray = &requestBuffer[numbytes - bytesLeft];
 		
 		if(bytesLeft < BUFSIZE)
 		{
-			printf("transmitting bytesleft to server");
+			printf("Transmitting %ld to server\n", bytesLeft);
 			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft, 0);
 		}
 		else
 		{
-			printf("transmitting BUFSIZE to server");
+			printf("transmitting %d to server\n", BUFSIZE);
 			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
 		}
 		
 		printf("%lu bytes left...\n", bytesLeft);
+		//~ free(subsetArray);
 	}
 	
+	printf("Free request buffer\n");
 	free(requestBuffer);
 }
 
@@ -182,6 +185,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 		char incomingStream[BUFSIZE];
 		memset(incomingStream, '\0', sizeof(char)*BUFSIZE);
 		
+		printf("receiving response from server\n");
 		numbytes = recv(socketDescriptor, incomingStream, BUFSIZE, 0);
 		
 		if(numbytes <= 0)
