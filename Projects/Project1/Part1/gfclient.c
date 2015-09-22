@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <errno.h> 
+#include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <ctype.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
@@ -17,7 +17,7 @@
 #include "gfclient.h"
 #include "utils.h"
 
-#define BUFSIZE 15
+#define BUFSIZE 4096
 
 #define HEADER_FOUND 1
 #define HEADER_NOT_FOUND 0
@@ -86,25 +86,25 @@ void ReapZombieProcesses()
 int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 {
 	printf("Building request\n");
-	
+
 	char *scheme = SchemeToString(gfr->Scheme);
 	printf("Scheme: %s\n", scheme);
-	
+
 	char *method = MethodToString(gfr->Method);
 	printf("Method: %s\n", method);
-	
+
 	char *path = gfr->Path;
 	printf("Path: %s\n", path);
-	
+
 	char *terminator = "\r\n\r\n";
-	
+
 	int spaceSize = 1;
 	int bufferLen = strlen(scheme) + spaceSize + strlen(method) + spaceSize + strlen(path) + spaceSize + strlen(terminator);
 	printf("Buffer length: %d\n", bufferLen);
-	
+
 	serializedBuffer = realloc(serializedBuffer, (bufferLen + 1) * sizeof(char));
 	bzero(serializedBuffer, bufferLen);
-	
+
 	strcpy(serializedBuffer, scheme);
 	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, method);
@@ -113,40 +113,77 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, terminator);
 	serializedBuffer[bufferLen + 1] = '\0';
-	
+
 	printf("Buffer contents: %s\n", serializedBuffer);
-	
+
 	return bufferLen;
+}
+
+gfstatus_t ParseStatus(char *str)
+{
+    if(strcmp(str, "GF_OK") == 0)
+		return GF_OK;
+    else if(strcmp(str, "GF_FILE_NOT_FOUND") == 0)
+        return GF_FILE_NOT_FOUND;
+    else if(strcmp(str, "GF_ERROR") == 0)
+        return GF_ERROR;
+	else
+		return GF_INVALID;
+}
+
+void ParseResponseHeader(gfcrequest_t *gfr, char *headerBuffer)
+{
+	char *delimiter = " ";
+	char *saveptr;
+
+	printf("Parsing header response string [%s]\n", headerBuffer);
+
+	// Strips off scheme
+	strtok_r(headerBuffer, delimiter, &saveptr);
+
+	gfr->Response.Status = ParseStatus(strtok_r(NULL, delimiter, &saveptr));
+	gfr->Response.Length = StringToInt(strtok_r(NULL, delimiter, &saveptr));
+
+	// TODO: Need to fix this to accommodate file paths with spaces
+
+	if(gfr->Response.Status == NO_STATUS)
+	{
+		printf("Parsed status [%d] is not a known status.", gfr->Response.Status);
+		gfr->Response.Status = GF_ERROR;
+	}
+
+    printf("Response.Status: %d\n", gfr->Response.Status);
+    printf("Response.Length: %ld\n", gfr->Response.Length);
 }
 
 void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
 	printf("Preparing request for transfer");
-	
+
 	if(gfr == NULL)
 	{
 		printf("Invalid request\n");
 		exit(1);
 	}
-	
+
 	char *requestBuffer = malloc(sizeof(char));
 	int requestLen = BuildRequestString(gfr, requestBuffer);
-	
+
 	long numbytes = requestLen * sizeof(char);
 	long bytesLeft = numbytes;
-	
+
 	printf("Writing %ld bytes to socket\n", bytesLeft);
-	
+
 	while(bytesLeft >= 1)
 	{
 		//~ printf("Before take");
 		//~ char *subsetArray = TakeChars(requestBuffer, (numbytes - bytesLeft) / sizeof(char), requestLen);
 		//~ printf("Subset taken");
-		
+
 		char *subsetArray = malloc(BUFSIZE * sizeof(char));
 		memset(subsetArray, '\0', BUFSIZE * sizeof(char));
 		subsetArray = &requestBuffer[numbytes - bytesLeft];
-		
+
 		if(bytesLeft < BUFSIZE)
 		{
 			printf("Transmitting %ld to server\n", bytesLeft);
@@ -157,37 +194,37 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 			printf("transmitting %d to server\n", BUFSIZE);
 			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
 		}
-		
+
 		printf("%lu bytes left...\n", bytesLeft);
 		//~ free(subsetArray);
 	}
-	
+
 	printf("Free request buffer\n");
 	free(requestBuffer);
 }
 
 void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
-{	
+{
 	if (gfr == NULL)
 	{
 		printf("Invalid request.\n");
 		exit(1);
 	}
-	
-	int numbytes;	
+
+	int numbytes;
 	int headerReceived = HEADER_NOT_FOUND;
-	
-	char headerBuffer[0];
-	
+
+	char *headerBuffer = calloc(1, sizeof(char));
+
 	do
 	{
 		// Write stream in chunks based on BUFSIZE
-		char incomingStream[BUFSIZE];
-		memset(incomingStream, '\0', sizeof(char)*BUFSIZE);
-		
+		char *incomingStream = malloc(BUFSIZE);
+		memset(incomingStream, '\0', BUFSIZE);
+
 		printf("receiving response from server\n");
 		numbytes = recv(socketDescriptor, incomingStream, BUFSIZE, 0);
-		
+
 		if(numbytes <= 0)
 		{
 			printf("End of message received\n");
@@ -195,36 +232,44 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 		else
 		{
 			printf("Recieved %d bytes\n", numbytes);
-			
+
 			if(headerReceived == HEADER_NOT_FOUND)
 			{
-				// Merge received array with header array
-				char subsetArray[sizeof(char) * numbytes];
-				memset(subsetArray, '\0', sizeof(char) * numbytes);
-				memcpy(subsetArray, incomingStream, sizeof(char) * numbytes);
-				MergeArrays(headerBuffer, subsetArray);
-				
+                headerBuffer = MergeArrays(headerBuffer, incomingStream);
+
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
-					gfr->ReceiveHeader(headerBuffer, strlen(headerBuffer), gfr->BuildHeaderArgument);
+                    ParseResponseHeader(gfr, headerBuffer);
+                    printf("Header received [length: %ld]...\n", strlen(headerBuffer));
+
+                    if(gfr->ReceiveHeader)
+                    {
+                        printf("Calling back to HeaderFunct...\n");
+                        gfr->ReceiveHeader(headerBuffer, strlen(headerBuffer), gfr->BuildHeaderArgument);
+					}
 					headerReceived = HEADER_FOUND;
-					
+
 					// TODO: Write remaining characters to WriteFunction()
 				}
 			}
 			else
 			{
-				gfr->ReceiveContent(incomingStream, numbytes, gfr->BuildWriteArgument);
+                printf("Writing content...\n");
+                if(gfr->WriteContent)
+                {
+                    printf("Calling back to WriteFunc...\n");
+                    gfr->WriteContent(incomingStream, numbytes, gfr->BuildWriteArgument);
+                }
 			}
 		}
-		
+
 	}while(numbytes > 0);
 }
 
 int ConnectToServer(char *hostName, unsigned short portNo)
 {
 	int socketDescriptor;
-	
+
 	printf("Getting host addresses\n");
 
 	// Setup address options
@@ -236,7 +281,7 @@ int ConnectToServer(char *hostName, unsigned short portNo)
 	struct addrinfo *addresses;
 	char *portStr = IntToString(portNo);
 	int status = getaddrinfo(hostName, portStr, &addressOptions, &addresses);
-    if (status != 0) 
+    if (status != 0)
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
         return 1;
@@ -244,13 +289,13 @@ int ConnectToServer(char *hostName, unsigned short portNo)
 
     // Connect to first address we can find for hostname
     char serverAddress[INET6_ADDRSTRLEN];
-    struct addrinfo *a; 
+    struct addrinfo *a;
     for(a = addresses; a != NULL; a = a->ai_next)
     {
 		inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
-    
+
 		printf("Checking address %s on port %hu\n", serverAddress, portNo);
-		
+
         if ((socketDescriptor = socket(a->ai_family, a->ai_socktype, a->ai_protocol)) == -1)
 		{
             perror("Unable to create socket");
@@ -267,16 +312,16 @@ int ConnectToServer(char *hostName, unsigned short portNo)
         break;
     }
 
-    if (a == NULL) 
+    if (a == NULL)
     {
         fprintf(stderr, "Failed to connect\n");
         return 2;
     }
-    
+
     // Connect to found address
 	//~ char serverAddress[INET6_ADDRSTRLEN];
     //~ inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
-    
+
     printf("Connecting to server at address [%s] on port [%hu]\n", serverAddress, portNo);
 
     freeaddrinfo(addresses);
@@ -320,7 +365,7 @@ void gfc_set_headerarg(gfcrequest_t *gfr, void *headerarg)
 
 void gfc_set_writefunc(gfcrequest_t *gfr, void (*writefunc)(void*, size_t, void *))
 {
-  gfr->ReceiveContent = writefunc;
+  gfr->WriteContent = writefunc;
 }
 
 void gfc_set_writearg(gfcrequest_t *gfr, void *writearg)
@@ -332,15 +377,17 @@ int gfc_perform(gfcrequest_t *gfr)
 {
 	// Connect
 	int socketDescriptor = ConnectToServer(gfr->ServerLocation, gfr->Port);
-	
+
 	// Request
 	SendRequestToServer(gfr, socketDescriptor);
-	
+
 	// Receive
 	ReceiveReponseFromServer(gfr, socketDescriptor);
-	
+
 	close(socketDescriptor);
-	
+
+    gfr->Status = GF_OK;
+
 	return 0;
 }
 
@@ -351,23 +398,23 @@ gfstatus_t gfc_get_status(gfcrequest_t *gfr)
 
 char* gfc_strstatus(gfstatus_t status)
 {
-	switch(status)
+    printf("Converting gfstatus [%d] to string", status);
+
+    if(status == GF_OK)
+    {
+        return "GF_OK";
+    }
+    else if(status == GF_FILE_NOT_FOUND)
+    {
+        return "GF_FILE_NOT_FOUND";
+    }
+    else if(status == GF_ERROR)
+    {
+        return "GF_ERROR";
+    }
+    else
 	{
-		case GF_OK:
-			return "GF_OK";
-			break;
-		case GF_FILE_NOT_FOUND:
-			return "GF_FILE_NOT_FOUND";
-			break;
-		case GF_ERROR:
-			return "GF_ERROR";
-			break;
-		case GF_INVALID:
-			return "GF_INVALID";
-			break;
-		default:
-			printf("Invalid status, unable to stringize %d.", status);
-			exit(-1);
+        return "GF_INVALID";
 	}
 }
 

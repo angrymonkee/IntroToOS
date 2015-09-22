@@ -74,11 +74,12 @@ static FILE* openFile(char *path){
 static void writecb(void* data, size_t data_len, void *arg){
   FILE *file = (FILE*) arg;
 
+    printf("In writecb...");
   fwrite(data, 1, data_len, file);
 }
 
 /* Main ========================================================= */
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 	/* COMMAND LINE OPTIONS ============================================= */
 	  char *server = "localhost";
@@ -96,9 +97,9 @@ int main(int argc, char **argv)
 	  char local_path[512];
 
 	// Parse and set command line arguments
-	while ((option_char = getopt_long(argc, argv, "s:p:w:n:t:h", gLongOptions, NULL)) != -1) 
+	while ((option_char = getopt_long(argc, argv, "s:p:w:n:t:h", gLongOptions, NULL)) != -1)
 	{
-		switch (option_char) 
+		switch (option_char)
 		{
 			  case 's': // server
 				server = optarg;
@@ -122,7 +123,7 @@ int main(int argc, char **argv)
 			  case 'h': // help
 				Usage();
 				exit(0);
-				break;                      
+				break;
 			  default:
 				Usage();
 				exit(1);
@@ -141,6 +142,7 @@ int main(int argc, char **argv)
 	for(i = 0; i < nrequests * nthreads; i++)
 	{
 		req_path = workload_get_path();
+        printf("Requested path: %s", req_path);
 
 		if(strlen(req_path) > 256)
 		{
@@ -170,7 +172,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "unlink failed on %s\n", local_path);
 			}
 		}
-		else 
+		else
 		{
 			fclose(file);
 		}
