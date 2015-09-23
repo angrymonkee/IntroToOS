@@ -74,7 +74,6 @@ static FILE* openFile(char *path){
 static void writecb(void* data, size_t data_len, void *arg){
   FILE *file = (FILE*) arg;
 
-    printf("In writecb...");
   fwrite(data, 1, data_len, file);
 }
 

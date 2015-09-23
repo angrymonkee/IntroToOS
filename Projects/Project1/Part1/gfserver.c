@@ -176,9 +176,7 @@ char* MethodToString(gfmethod_t method)
 
 long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 {
-    printf("Sending data to client...\n");
-
-	if(buffer == NULL || strlen(buffer) == 0)
+	if(buffer == NULL || len == 0)
 	{
 		printf("No data to send over socket\n");
 		exit(1);
@@ -189,6 +187,7 @@ long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 
 	printf("Writing %lu bytes to socket\n", bytesLeft);
 
+    long totalBytesSent = 0;
 	while(bytesLeft >= 1)
 	{
         long chunk = BUFSIZE;
@@ -199,13 +198,15 @@ long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 		memset(subsetArray, '\0', sizeof(char));
 		subsetArray = &buffer[numbytes - bytesLeft];
 
-        bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
+        long bytesSent = send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
+        bytesLeft = bytesLeft - bytesSent;
+        totalBytesSent += bytesSent;
 
 		printf("%lu bytes left...\n", bytesLeft);
 	}
 
-	printf("Data sent successfully...\n");
-	return numbytes;
+	printf("%ld bytes of data sent successfully...\n", totalBytesSent);
+	return totalBytesSent;
 }
 
 char *ReceiveRequest(int socketDescriptor)
@@ -384,9 +385,7 @@ ssize_t gfs_sendheader(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 ssize_t gfs_send(gfcontext_t *ctx, void *data, size_t len)
 {
     printf("Read %ld bytes\n", len);
-	long sentBytes = SendToSocket(data, ctx->SocketDescriptor, len);
-	printf("Wrote %ld bytes to socket\n", sentBytes);
-	return (ssize_t)sentBytes;
+	return SendToSocket(data, ctx->SocketDescriptor, len);
 }
 
 void gfs_abort(gfcontext_t *ctx)
@@ -464,7 +463,8 @@ void gfserver_serve(gfserver_t *gfs)
 				context->SocketDescriptor = clientSocket;
 
 				// Create context and send to handler
-				gfs->Handle(context, context->FilePath, gfs->HandlerArg);
+				ssize_t bytesTransfered = gfs->Handle(context, context->FilePath, gfs->HandlerArg);
+				printf("Total bytes transfered = %ld\n", bytesTransfered);
 			}
 
 			free(incomingRequest);

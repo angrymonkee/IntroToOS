@@ -131,7 +131,7 @@ gfstatus_t ParseStatus(char *str)
 		return GF_INVALID;
 }
 
-void ParseResponseHeader(gfcrequest_t *gfr, char *headerBuffer)
+void ParseHeaderSetResponse(gfcrequest_t *gfr, char *headerBuffer)
 {
 	char *delimiter = " ";
 	char *saveptr;
@@ -213,6 +213,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
 	int numbytes;
 	int headerReceived = HEADER_NOT_FOUND;
+	long contentBytes = 0;
 
 	char *headerBuffer = calloc(1, sizeof(char));
 
@@ -235,11 +236,13 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
 			if(headerReceived == HEADER_NOT_FOUND)
 			{
+                // Gather bytes that make up header
                 headerBuffer = MergeArrays(headerBuffer, incomingStream);
 
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
-                    ParseResponseHeader(gfr, headerBuffer);
+                    // When end of header found then parse header and set response
+                    ParseHeaderSetResponse(gfr, headerBuffer);
                     printf("Header received [length: %ld]...\n", strlen(headerBuffer));
 
                     if(gfr->ReceiveHeader)
@@ -249,12 +252,25 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 					}
 					headerReceived = HEADER_FOUND;
 
-					// TODO: Write remaining characters to WriteFunction()
+					// All remaining bytes are part of content NOT header
+					char *startOfContent = strstr(incomingStream, "\r\n\r\n");
+					startOfContent += 4 * sizeof(char); // Advance pointer to after header terminator
+                    long lengthOfRemainingContent = (numbytes / sizeof(char)) - (startOfContent - incomingStream);
+                    contentBytes += lengthOfRemainingContent * sizeof(char);
+                    printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, lengthOfRemainingContent);
+					//contentBytes += (strlen(endOfHeader) * sizeof(char));
+
+                    if(gfr->WriteContent)
+                    {
+                        printf("Calling back to WriteFunc...\n");
+                        //gfr->WriteContent(endOfHeader, strlen(endOfHeader) - 4, gfr->BuildWriteArgument);
+                        gfr->WriteContent(startOfContent, lengthOfRemainingContent, gfr->BuildWriteArgument);
+                    }
 				}
 			}
 			else
 			{
-                printf("Writing content...\n");
+                contentBytes += numbytes;
                 if(gfr->WriteContent)
                 {
                     printf("Calling back to WriteFunc...\n");
@@ -263,7 +279,12 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 			}
 		}
 
+        free(incomingStream);
 	}while(numbytes > 0);
+
+    free(headerBuffer);
+
+	gfr->Response.BytesReceived = contentBytes;
 }
 
 int ConnectToServer(char *hostName, unsigned short portNo)
