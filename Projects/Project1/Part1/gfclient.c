@@ -103,7 +103,7 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	printf("Buffer length: %d\n", bufferLen);
 
 	serializedBuffer = realloc(serializedBuffer, (bufferLen + 1) * sizeof(char));
-	bzero(serializedBuffer, bufferLen);
+	memset(serializedBuffer, '\0', bufferLen + 1 * sizeof(char));
 
 	strcpy(serializedBuffer, scheme);
 	strcat(serializedBuffer, " ");
@@ -158,7 +158,7 @@ void ParseHeaderSetResponse(gfcrequest_t *gfr, char *headerBuffer)
 
 void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
-	printf("Preparing request for transfer");
+	printf("Preparing request for transfer\n");
 
 	if(gfr == NULL)
 	{
@@ -166,8 +166,9 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 		exit(1);
 	}
 
-	char *requestBuffer = malloc(sizeof(char));
-	int requestLen = BuildRequestString(gfr, requestBuffer);
+	char *requestBuffer = calloc(1, sizeof(char));
+
+	long requestLen = BuildRequestString(gfr, requestBuffer);
 
 	long numbytes = requestLen * sizeof(char);
 	long bytesLeft = numbytes;
@@ -176,27 +177,22 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 
 	while(bytesLeft >= 1)
 	{
-		//~ printf("Before take");
-		//~ char *subsetArray = TakeChars(requestBuffer, (numbytes - bytesLeft) / sizeof(char), requestLen);
-		//~ printf("Subset taken");
+        long chunk = BUFSIZE;
+        if(bytesLeft < BUFSIZE)
+            chunk = bytesLeft;
 
-		char *subsetArray = malloc(BUFSIZE * sizeof(char));
-		memset(subsetArray, '\0', BUFSIZE * sizeof(char));
+		char *subsetArray = malloc(chunk);
+		memset(subsetArray, '\0', chunk / sizeof(char));
 		subsetArray = &requestBuffer[numbytes - bytesLeft];
 
-		if(bytesLeft < BUFSIZE)
-		{
-			printf("Transmitting %ld to server\n", bytesLeft);
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, bytesLeft, 0);
-		}
-		else
-		{
-			printf("transmitting %d to server\n", BUFSIZE);
-			bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, BUFSIZE, 0);
-		}
+        printf("Numbytes: %ld\n", numbytes);
+        printf("BytesLeft: %ld\n", bytesLeft);
+		printf("MemsetBuffer: %s\n", subsetArray);
+
+        printf("Transmitting %ld to server\n", bytesLeft);
+        bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
 
 		printf("%lu bytes left...\n", bytesLeft);
-		//~ free(subsetArray);
 	}
 
 	printf("Free request buffer\n");

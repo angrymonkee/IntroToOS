@@ -195,7 +195,7 @@ long SendToSocket(char *buffer, int socketDescriptor, size_t len)
             chunk = bytesLeft;
 
 		char *subsetArray = malloc(chunk);
-		memset(subsetArray, '\0', sizeof(char));
+		memset(subsetArray, '\0', chunk / sizeof(char));
 		subsetArray = &buffer[numbytes - bytesLeft];
 
         long bytesSent = send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
@@ -211,14 +211,14 @@ long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 
 char *ReceiveRequest(int socketDescriptor)
 {
-	int numbytes;
+	int numbytes = 0;
 	char *buffer = calloc(1, sizeof(char));
 
 	do
 	{
 		// Write stream in chunks based on BUFSIZE
-		char *incomingStream = malloc(BUFSIZE);
-		memset(incomingStream, '\0', BUFSIZE);
+		char *incomingStream = malloc(BUFSIZE + 1);
+		memset(incomingStream, '\0', BUFSIZE + 1);
 
 		numbytes = recv(socketDescriptor, incomingStream, BUFSIZE, 0);
 
@@ -238,7 +238,7 @@ char *ReceiveRequest(int socketDescriptor)
 
 	if(strlen(buffer) > 1)
 	{
-		printf("return buffer");
+		printf("Request received...%s\n", buffer);
 		return buffer;
 	}
 	else
