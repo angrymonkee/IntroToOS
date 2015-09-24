@@ -1,4 +1,4 @@
-char *MergeArrays(char *destination, char *append);
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount);
 
 char *IntToString(int number);
 

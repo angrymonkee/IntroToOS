@@ -212,6 +212,8 @@ long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 char *ReceiveRequest(int socketDescriptor)
 {
 	int numbytes = 0;
+	long bufferBytes = 0;
+
 	char *buffer = calloc(1, sizeof(char));
 
 	do
@@ -231,7 +233,8 @@ char *ReceiveRequest(int socketDescriptor)
 		else
 		{
 			printf("Recieved %d bytes\n", numbytes);
-			buffer = MergeArrays(buffer, incomingStream);
+			buffer = MergeArrays(buffer, bufferBytes / sizeof(char), incomingStream, numbytes / sizeof(char));
+			bufferBytes += numbytes;
 		}
 
 	}while(numbytes > 0 && !(strstr(buffer, "\r\n\r\n")));

@@ -103,7 +103,7 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	printf("Buffer length: %d\n", bufferLen);
 
 	serializedBuffer = realloc(serializedBuffer, (bufferLen + 1) * sizeof(char));
-	memset(serializedBuffer, '\0', bufferLen + 1 * sizeof(char));
+	memset(serializedBuffer, '\0', (bufferLen + 1) * sizeof(char));
 
 	strcpy(serializedBuffer, scheme);
 	strcat(serializedBuffer, " ");
@@ -112,7 +112,7 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	strcat(serializedBuffer, path);
 	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, terminator);
-	serializedBuffer[bufferLen + 1] = '\0';
+	//serializedBuffer[bufferLen + 1] = '\0';
 
 	printf("Buffer contents: %s\n", serializedBuffer);
 
@@ -181,9 +181,9 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
         if(bytesLeft < BUFSIZE)
             chunk = bytesLeft;
 
-		char *subsetArray = malloc(chunk);
-		memset(subsetArray, '\0', chunk / sizeof(char));
-		subsetArray = &requestBuffer[numbytes - bytesLeft];
+//		char *subsetArray = malloc(chunk);
+//		memset(subsetArray, '\0', chunk / sizeof(char));
+		char *subsetArray = &requestBuffer[numbytes - bytesLeft];
 
         printf("Numbytes: %ld\n", numbytes);
         printf("BytesLeft: %ld\n", bytesLeft);
@@ -210,6 +210,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 	int numbytes;
 	int headerReceived = HEADER_NOT_FOUND;
 	long contentBytes = 0;
+    long headerBytes = 0;
 
 	char *headerBuffer = calloc(1, sizeof(char));
 
@@ -233,7 +234,8 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 			if(headerReceived == HEADER_NOT_FOUND)
 			{
                 // Gather bytes that make up header
-                headerBuffer = MergeArrays(headerBuffer, incomingStream);
+                headerBuffer = MergeArrays(headerBuffer, headerBytes, incomingStream, numbytes / sizeof(char));
+                headerBytes += numbytes;
 
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
@@ -276,6 +278,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 		}
 
         free(incomingStream);
+
 	}while(numbytes > 0);
 
     free(headerBuffer);

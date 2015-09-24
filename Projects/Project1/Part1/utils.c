@@ -11,25 +11,31 @@
 
 #include "utils.h"
 
-char *MergeArrays(char *destination, char *append)
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
 {
-    int destinationCount = strlen(destination);
-    int appendCount = strlen(append);
+//    int destinationCount = strlen(destination);
+//    int appendCount = strlen(append);
     int totalCount = destinationCount + appendCount;
 
     printf("Destination count %d\n", destinationCount);
     printf("Append count %d\n", appendCount);
     printf("Total count %d\n", totalCount);
 
-	char *newArray = malloc((totalCount + 1) * sizeof(char));
-	memset(newArray, '\0', (totalCount + 1) * sizeof(char));
 
-	memcpy(newArray, destination, destinationCount * sizeof(char));
-	memcpy(newArray + destinationCount * sizeof(char), append, appendCount * sizeof(char));
-	newArray[totalCount] = '\0';
+    destination = realloc(destination, (totalCount + 1) * sizeof(char));
+    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+    destination[totalCount] = '\0';
 
-	printf("Merged array: %s\n", newArray);
-	return newArray;
+    printf("Merged array: %s\n", destination);
+    return destination;
+//	char *newArray = malloc((totalCount + 1) * sizeof(char));
+//	memset(newArray, '\0', (totalCount + 1) * sizeof(char));
+//	memcpy(newArray, destination, destinationCount * sizeof(char));
+//	memcpy(newArray + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+//	newArray[totalCount] = '\0';
+
+//	printf("Merged array: %s\n", newArray);
+//	return newArray;
 }
 
 char *IntToString(int number)
