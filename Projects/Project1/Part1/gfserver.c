@@ -19,10 +19,123 @@
 
 #define BUFSIZE 4096
 
-/*
- * Modify this file to implement the interface specified in
- * gfserver.h.
- */
+
+
+typedef enum gfscheme_t
+{
+	NO_SCHEME,
+	GETFILE
+} gfscheme_t;
+
+typedef enum gfmethod_t
+{
+	NO_METHOD,
+	GET
+} gfmethod_t;
+
+typedef struct gfcontext_t
+{
+	int SocketDescriptor;
+	char *FilePath;
+	gfscheme_t Scheme;
+	gfmethod_t Method;
+	gfstatus_t Status;
+}
+gfcontext_t;
+
+typedef ssize_t (*handler)(gfcontext_t *, char *, void*);
+
+typedef struct gfserver_t
+{
+	unsigned short Port;
+	int MaxNumberConnections;
+	handler Handle;
+	void (*HandlerArg)();
+}gfserver_t;
+
+
+/* Utils methods ====================================== */
+//
+//char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
+//{
+//    int totalCount = destinationCount + appendCount;
+//
+//    printf("Destination count %d\n", destinationCount);
+//    printf("Append count %d\n", appendCount);
+//    printf("Total count %d\n", totalCount);
+//
+//
+//    destination = realloc(destination, (totalCount + 1) * sizeof(char));
+//    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+//    destination[totalCount] = '\0';
+//
+//    printf("Merged array: %s\n", destination);
+//    return destination;
+//}
+//
+//int NumDigits(int num)
+//{
+//	int count = 0;
+//	if (num == 0)
+//		count++;
+//
+//	while (num !=0)
+//	{
+//		count++;
+//		num/=10;
+//	}
+//
+//	return count;
+//}
+//
+//char *IntToString(int number)
+//{
+//	printf("Convert number [%d] to string\n", number);
+//	int intLen = NumDigits(number);
+//	printf("String length: %d\n", intLen);
+//
+//	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
+//	sprintf(stringizedNumber, "%d", number);
+//
+//	stringizedNumber[intLen + 1] = '\0';
+//
+//	printf("Stringized number: %s\n", stringizedNumber);
+//
+//	return stringizedNumber;
+//}
+//
+//int StringToInt(char *str)
+//{
+//	int dec = 0;
+//	int len = strlen(str);
+//	int i;
+//
+//	for(i = 0; i < len; i++)
+//	{
+//		dec = dec * 10 + (str[i] - '0');
+//	}
+//
+//	return dec;
+//}
+//
+//char *TakeChars(char *array, int startIndex, int endIndex)
+//{
+//	int arrayLen = endIndex - startIndex;
+//	char *subArray = malloc(arrayLen * sizeof(char));
+//	bzero(subArray, arrayLen * sizeof(char));
+//
+//	int i;
+//	int subIndex = 0;
+//	for(i = startIndex; startIndex <= endIndex; i++)
+//	{
+//		subArray[subIndex] = array[i];
+//		subIndex++;
+//	}
+//
+//	return subArray;
+//}
+//
+
 
 
 void sigchld_handler(int s)
@@ -133,15 +246,12 @@ char *StatusToString(gfstatus_t status)
 {
 	switch(status)
 	{
-		case GF_OK:
+		case 200:
 			return "GF_OK";
-			break;
-		case GF_FILE_NOT_FOUND:
+		case 400:
 			return "GF_FILE_NOT_FOUND";
-			break;
-		case GF_ERROR:
+		case 500:
 			return "GF_ERROR";
-			break;
 		default:
 			printf("Invalid status, unable to stringize %d.", status);
 			exit(-1);

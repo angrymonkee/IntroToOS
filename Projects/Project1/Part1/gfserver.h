@@ -11,56 +11,56 @@
 
 #define MAX_REQUEST_LEN 128
 
-//~ typedef int gfstatus_t;
-//~ 
-//~ #define  GF_OK 200
-//~ #define  GF_FILE_NOT_FOUND 400
-//~ #define  GF_ERROR 500
-//~ 
+typedef int gfstatus_t;
 
-typedef enum gfstatus_t
-{
-	NO_STATUS,
-	GF_OK = 20,
-	GF_FILE_NOT_FOUND = 200,
-	GF_ERROR = 500
-} gfstatus_t;
-
-typedef enum gfscheme_t
-{
-	NO_SCHEME,
-	GETFILE
-} gfscheme_t;
-
-typedef enum gfmethod_t
-{
-	NO_METHOD,
-	GET
-} gfmethod_t;
-
-typedef struct gfcontext_t 
-{
-	int SocketDescriptor;
-	char *FilePath;
-	gfscheme_t Scheme;
-	gfmethod_t Method;
-	gfstatus_t Status;
-}
-gfcontext_t;
-
-typedef ssize_t (*handler)(gfcontext_t *, char *, void*);
-
-typedef struct gfserver_t 
-{
-	unsigned short Port;
-	int MaxNumberConnections;
-	handler Handle;
-	void (*HandlerArg)();
-}gfserver_t;
+#define  GF_OK 200
+#define  GF_FILE_NOT_FOUND 400
+#define  GF_ERROR 500
 
 
-/* 
- * This function must be the first one called as part of 
+//typedef enum gfstatus_t
+//{
+//	NO_STATUS,
+//	GF_OK = 20,
+//	GF_FILE_NOT_FOUND = 200,
+//	GF_ERROR = 500
+//} gfstatus_t;
+
+//typedef enum gfscheme_t
+//{
+//	NO_SCHEME,
+//	GETFILE
+//} gfscheme_t;
+//
+//typedef enum gfmethod_t
+//{
+//	NO_METHOD,
+//	GET
+//} gfmethod_t;
+
+typedef struct gfcontext_t gfcontext_t;
+//{
+//	int SocketDescriptor;
+//	char *FilePath;
+//	gfscheme_t Scheme;
+//	gfmethod_t Method;
+//	gfstatus_t Status;
+//}
+//gfcontext_t;
+
+//typedef ssize_t (*handler)(gfcontext_t *, char *, void*);
+
+typedef struct gfserver_t gfserver_t;
+//{
+//	unsigned short Port;
+//	int MaxNumberConnections;
+//	handler Handle;
+//	void (*HandlerArg)();
+//}gfserver_t;
+
+
+/*
+ * This function must be the first one called as part of
  * setting up a server.  It returns a gfserver_t handle which should be
  * passed into all subsequent library calls of the form gfserver_*.  It
  * is not needed for the gfs_* call which are intended to be called from
@@ -82,8 +82,8 @@ void gfserver_set_maxpending(gfserver_t *gfs, int max_npending);
 
 /*
  * Sets the handler callback, a function that will be called for each each
- * request.  As arguments, the receives 
- * - a gfcontext_t handle which it must pass into the gfs_* functions that 
+ * request.  As arguments, the receives
+ * - a gfcontext_t handle which it must pass into the gfs_* functions that
  * 	 it calls as it handles the response.
  * - the requested path
  * - the pointer specified in the gfserver_set_handlerarg option.
@@ -102,15 +102,15 @@ void gfserver_set_handlerarg(gfserver_t *gfs, void* arg);
 void gfserver_serve(gfserver_t *gfs);
 
 /*
- * Sends to the client the Getfile header containing the appropriate 
+ * Sends to the client the Getfile header containing the appropriate
  * status and file length for the given inputs.  This function should
  * only be called from within a callback registered gfserver_set_handler.
  */
 ssize_t gfs_sendheader(gfcontext_t *ctx, gfstatus_t status, size_t file_len);
 
 /*
- * Sends size bytes starting at the pointer data to the client 
- * This function should only be called from within a callback registered 
+ * Sends size bytes starting at the pointer data to the client
+ * This function should only be called from within a callback registered
  * with gfserver_set_handler.  It returns once the data has been
  * sent.
  */

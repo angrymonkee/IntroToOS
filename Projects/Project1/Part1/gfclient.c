@@ -22,6 +22,133 @@
 #define HEADER_FOUND 1
 #define HEADER_NOT_FOUND 0
 
+
+
+typedef enum gfmethod_t
+{
+	NO_METHOD,
+	GET
+} gfmethod_t;
+
+typedef enum gfscheme_t
+{
+	NO_SCHEME,
+	GETFILE
+} gfscheme_t;
+
+typedef struct response_message_t
+{
+	long Length;
+	long BytesReceived;
+	gfstatus_t Status;
+	char *Header;
+} response_message_t;
+
+typedef void (*headerfunc)(void*, size_t, void *);
+typedef void (*HeaderArg)();
+typedef void (*WriteFunction)(void*, size_t, void *);
+typedef void (*WriteArg)();
+
+typedef struct gfcrequest_t
+{
+	char * ServerLocation;
+	char * Path;
+	unsigned short Port;
+	gfstatus_t Status;
+	gfmethod_t Method;
+	gfscheme_t Scheme;
+	headerfunc ReceiveHeader;
+	HeaderArg BuildHeaderArgument;
+	WriteFunction WriteContent;
+	WriteArg BuildWriteArgument;
+	response_message_t Response;
+} gfcrequest_t;
+
+
+/* Utils methods ====================================== */
+//
+//char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
+//{
+//    int totalCount = destinationCount + appendCount;
+//
+//    printf("Destination count %d\n", destinationCount);
+//    printf("Append count %d\n", appendCount);
+//    printf("Total count %d\n", totalCount);
+//
+//
+//    destination = realloc(destination, (totalCount + 1) * sizeof(char));
+//    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+//    destination[totalCount] = '\0';
+//
+//    printf("Merged array: %s\n", destination);
+//    return destination;
+//}
+//
+//int NumDigits(int num)
+//{
+//	int count = 0;
+//	if (num == 0)
+//		count++;
+//
+//	while (num !=0)
+//	{
+//		count++;
+//		num/=10;
+//	}
+//
+//	return count;
+//}
+//
+//char *IntToString(int number)
+//{
+//	printf("Convert number [%d] to string\n", number);
+//	int intLen = NumDigits(number);
+//	printf("String length: %d\n", intLen);
+//
+//	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
+//	sprintf(stringizedNumber, "%d", number);
+//
+//	stringizedNumber[intLen + 1] = '\0';
+//
+//	printf("Stringized number: %s\n", stringizedNumber);
+//
+//	return stringizedNumber;
+//}
+//
+//int StringToInt(char *str)
+//{
+//	int dec = 0;
+//	int len = strlen(str);
+//	int i;
+//
+//	for(i = 0; i < len; i++)
+//	{
+//		dec = dec * 10 + (str[i] - '0');
+//	}
+//
+//	return dec;
+//}
+//
+//char *TakeChars(char *array, int startIndex, int endIndex)
+//{
+//	int arrayLen = endIndex - startIndex;
+//	char *subArray = malloc(arrayLen * sizeof(char));
+//	bzero(subArray, arrayLen * sizeof(char));
+//
+//	int i;
+//	int subIndex = 0;
+//	for(i = startIndex; startIndex <= endIndex; i++)
+//	{
+//		subArray[subIndex] = array[i];
+//		subIndex++;
+//	}
+//
+//	return subArray;
+//}
+//
+
+
+
 /* Helper methods ====================================== */
 
 char *SchemeToString(gfscheme_t scheme)
@@ -146,12 +273,6 @@ void ParseHeaderSetResponse(gfcrequest_t *gfr, char *headerBuffer)
 
 	// TODO: Need to fix this to accommodate file paths with spaces
 
-	if(gfr->Response.Status == NO_STATUS)
-	{
-		printf("Parsed status [%d] is not a known status.", gfr->Response.Status);
-		gfr->Response.Status = GF_ERROR;
-	}
-
     printf("Response.Status: %d\n", gfr->Response.Status);
     printf("Response.Length: %ld\n", gfr->Response.Length);
 }
@@ -250,19 +371,22 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 					}
 					headerReceived = HEADER_FOUND;
 
-					// All remaining bytes are part of content NOT header
-					char *startOfContent = strstr(incomingStream, "\r\n\r\n");
-					startOfContent += 4 * sizeof(char); // Advance pointer to after header terminator
-                    long lengthOfRemainingContent = (numbytes / sizeof(char)) - (startOfContent - incomingStream);
-                    contentBytes += lengthOfRemainingContent * sizeof(char);
-                    printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, lengthOfRemainingContent);
-					//contentBytes += (strlen(endOfHeader) * sizeof(char));
-
-                    if(gfr->WriteContent)
+                    if(gfr->Status != GF_ERROR || gfr->Status != GF_FILE_NOT_FOUND)
                     {
-                        printf("Calling back to WriteFunc...\n");
-                        //gfr->WriteContent(endOfHeader, strlen(endOfHeader) - 4, gfr->BuildWriteArgument);
-                        gfr->WriteContent(startOfContent, lengthOfRemainingContent, gfr->BuildWriteArgument);
+                        // All remaining bytes are part of content NOT header
+                        char *startOfContent = strstr(incomingStream, "\r\n\r\n");
+                        startOfContent += 4 * sizeof(char); // Advance pointer to after header terminator
+                        long lengthOfRemainingContent = (numbytes / sizeof(char)) - (startOfContent - incomingStream);
+                        contentBytes += lengthOfRemainingContent * sizeof(char);
+                        printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, lengthOfRemainingContent);
+                        //contentBytes += (strlen(endOfHeader) * sizeof(char));
+
+                        if(gfr->WriteContent)
+                        {
+                            printf("Calling back to WriteFunc...\n");
+                            //gfr->WriteContent(endOfHeader, strlen(endOfHeader) - 4, gfr->BuildWriteArgument);
+                            gfr->WriteContent(startOfContent, lengthOfRemainingContent, gfr->BuildWriteArgument);
+                        }
                     }
 				}
 			}
@@ -279,7 +403,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
         free(incomingStream);
 
-	}while(numbytes > 0);
+	}while(numbytes > 0 && (gfr->Status != GF_FILE_NOT_FOUND || gfr->Status != GF_ERROR));
 
     free(headerBuffer);
 

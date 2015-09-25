@@ -19,7 +19,8 @@
 "  -h                  Show this help message\n"                              \
 
 extern ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg);
-extern void InitializeThreads(int numberOfThreads);
+extern void InitializeThreadPool(int numberOfThreads);
+extern void InitializeThreadConstructs();
 
 /* Main ========================================================= */
 int main(int argc, char **argv) {
@@ -66,4 +67,5 @@ int main(int argc, char **argv) {
 
   /*Loops forever*/
   gfserver_serve(gfs);
+  ThreadCleanup();
 }

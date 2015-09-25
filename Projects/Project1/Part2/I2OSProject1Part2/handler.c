@@ -18,7 +18,7 @@ pthread_mutex_t _queueLock;
 pthread_mutex_t _fileLock;
 steque_t *_queue;
 
-void StartProcessingRequests();
+void ProcessRequests();
 
 typedef struct request_context_t
 {
@@ -34,13 +34,13 @@ void InitializeThreadConstructs()
     if (pthread_mutex_init(&_queueLock, NULL) != 0)
     {
         printf("\n Queue lock mutex init failed\n");
-        return 1;
+        exit(1);
     }
 
     if (pthread_mutex_init(&_fileLock, NULL) != 0)
     {
         printf("\n File lock mutex init failed\n");
-        return 1;
+        exit(1);
     }
 }
 
@@ -52,8 +52,10 @@ void InitializeThreadPool(int numberOfThreads)
     int i;
     for(i=0;i < _numberOfThreads; i++)
     {
+        printf("Creating thread: %d\n", i);
+
         // Create thread
-        err = pthread_create(&(tid[i]), NULL, &StartProcessingRequests, NULL);
+        err = pthread_create(&(tid[i]), NULL, (void*)&ProcessRequests, NULL);
         if (err != 0)
         {
             printf("\ncan't create thread :[%s]", strerror(err));
@@ -61,13 +63,18 @@ void InitializeThreadPool(int numberOfThreads)
     }
 }
 
-void StartProcessingRequests()
+void ThreadCleanup()
+{
+    steque_destroy(_queue);
+}
+
+void ProcessRequests()
 {
     while(1)
     {
         // Dequeue
         pthread_mutex_lock(&_queueLock);
-        request_context_t ctx = steque_pop(_queue);
+        request_context_t* ctx = steque_pop(_queue);
         pthread_mutex_unlock(&_queueLock);
 
         // Process
@@ -76,13 +83,16 @@ void StartProcessingRequests()
         ssize_t read_len, write_len;
         char buffer[BUFFER_SIZE];
 
-        if( 0 > (fildes = content_get(ctx.Path)))
-            return gfs_sendheader(ctx.Context, GF_FILE_NOT_FOUND, 0);
+        if( 0 > (fildes = content_get(ctx->Path)))
+        {
+//            return gfs_sendheader(ctx->Context, GF_FILE_NOT_FOUND, 0);
+            gfs_sendheader(ctx->Context, GF_FILE_NOT_FOUND, 0);
+        }
 
         /* Calculating the file size */
         file_len = lseek(fildes, 0, SEEK_END);
 
-        gfs_sendheader(ctx.Context, GF_OK, file_len);
+        gfs_sendheader(ctx->Context, GF_OK, file_len);
 
         pthread_mutex_lock(&_fileLock);
 
@@ -92,14 +102,14 @@ void StartProcessingRequests()
             read_len = pread(fildes, buffer, BUFFER_SIZE, bytes_transferred);
             if (read_len <= 0){
                 fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-                gfs_abort(ctx.Context);
-                return -1;
+                gfs_abort(ctx->Context);
+                exit(-1);
             }
-            write_len = gfs_send(ctx.Context, buffer, read_len);
+            write_len = gfs_send(ctx->Context, buffer, read_len);
             if (write_len != read_len){
                 fprintf(stderr, "handle_with_file write error");
-                gfs_abort(ctx.Context);
-                return -1;
+                gfs_abort(ctx->Context);
+                exit(-1);
             }
             bytes_transferred += write_len;
         }
@@ -117,8 +127,8 @@ ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg)
     context.Context = ctx;
     context.Path = path;
     context.Arg = arg;
-    steque_enqueue(_queue, context);
-
+    steque_enqueue(_queue, &context);
+    return 0;
 
 //	int fildes;
 //	ssize_t file_len, bytes_transferred;
@@ -151,6 +161,6 @@ ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg)
 //		bytes_transferred += write_len;
 //	}
 
-	return bytes_transferred;
+//	return bytes_transferred;
 }
 

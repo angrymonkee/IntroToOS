@@ -10,53 +10,52 @@
 
 typedef enum gfstatus_t
 {
-	NO_STATUS,
-	GF_OK,
-	GF_FILE_NOT_FOUND,
-	GF_ERROR,
+	GF_OK = 200,
+	GF_FILE_NOT_FOUND = 400,
+	GF_ERROR = 500,
 	GF_INVALID
 } gfstatus_t;
 
-typedef enum gfmethod_t
-{
-	NO_METHOD,
-	GET
-} gfmethod_t;
+//typedef enum gfmethod_t
+//{
+//	NO_METHOD,
+//	GET
+//} gfmethod_t;
+//
+//typedef enum gfscheme_t
+//{
+//	NO_SCHEME,
+//	GETFILE
+//} gfscheme_t;
+//
+//typedef struct
+//{
+//	long Length;
+//	long BytesReceived;
+//	gfstatus_t Status;
+//	char *Header;
+//} response_message_t;
 
-typedef enum gfscheme_t
-{
-	NO_SCHEME,
-	GETFILE
-} gfscheme_t;
-
-typedef struct
-{
-	long Length;
-	long BytesReceived;
-	gfstatus_t Status;
-	char *Header;
-} response_message_t;
-
-typedef void (*headerfunc)(void*, size_t, void *);
-typedef void (*HeaderArg)();
-typedef void (*WriteFunction)(void*, size_t, void *);
-typedef void (*WriteArg)();
+//typedef void (*headerfunc)(void*, size_t, void *);
+//typedef void (*HeaderArg)();
+//typedef void (*WriteFunction)(void*, size_t, void *);
+//typedef void (*WriteArg)();
 
 /*struct for a getfile request*/
-typedef struct gfcrequest_t
-{
-	char * ServerLocation;
-	char * Path;
-	unsigned short Port;
-	gfstatus_t Status;
-	gfmethod_t Method;
-	gfscheme_t Scheme;
-	headerfunc ReceiveHeader;
-	HeaderArg BuildHeaderArgument;
-	WriteFunction WriteContent;
-	WriteArg BuildWriteArgument;
-	response_message_t Response;
-} gfcrequest_t;
+typedef struct gfcrequest_t gfcrequest_t;
+//{
+//	char * ServerLocation;
+//	char * Path;
+//	unsigned short Port;
+//	gfstatus_t Status;
+//	gfmethod_t Method;
+//	gfscheme_t Scheme;
+//	headerfunc ReceiveHeader;
+//	HeaderArg BuildHeaderArgument;
+//	WriteFunction WriteContent;
+//	WriteArg BuildWriteArgument;
+//	response_message_t Response;
+//} gfcrequest_t;
 
 /*
  * Returns the string associated with the input status
