@@ -42,6 +42,7 @@ typedef struct ServerSettings
     char *Server;
     unsigned short Port;
     int NumOfRequest;
+    int ThreadID;
 } ServerSettings;
 
 static void Usage() {
@@ -171,56 +172,61 @@ void ProcessRequest(ServerSettings *settings)
     }
 
     pthread_exit(NULL);
+    free(settings);
 }
 
 /* Main ========================================================= */
-int main(int argc, char **argv) {
-/* COMMAND LINE OPTIONS ============================================= */
-  char *server = "localhost";
-  unsigned short port = 8888;
-  char *workload_path = "workload.txt";
+int main(int argc, char **argv)
+{
+    /* COMMAND LINE OPTIONS ============================================= */
+    char *server = "localhost";
+    unsigned short port = 8888;
+    char *workload_path = "workload.txt";
 
-  int i;
-  int option_char = 0;
-  int nrequests = 1;
-  int nthreads = 1;
+    int i;
+    int option_char = 0;
+    int nrequests = 1;
+    int nthreads = 1;
 
-  // Parse and set command line arguments
-  while ((option_char = getopt_long(argc, argv, "s:p:w:n:t:h", gLongOptions, NULL)) != -1) {
-    switch (option_char) {
-      case 's': // server
-        server = optarg;
-        break;
-      case 'p': // port
-        port = atoi(optarg);
-        break;
-      case 'w': // workload-path
-        workload_path = optarg;
-        break;
-      case 'n': // nrequests
-        nrequests = atoi(optarg);
-        break;
-      case 't': // nthreads
-        nthreads = atoi(optarg);
-        break;
-      case 'h': // help
-        Usage();
-        exit(0);
-        break;
-      default:
-        Usage();
-        exit(1);
+    // Parse and set command line arguments
+    while ((option_char = getopt_long(argc, argv, "s:p:w:n:t:h", gLongOptions, NULL)) != -1)
+    {
+        switch (option_char)
+        {
+            case 's': // server
+                server = optarg;
+                break;
+            case 'p': // port
+                port = atoi(optarg);
+                break;
+            case 'w': // workload-path
+                workload_path = optarg;
+                break;
+            case 'n': // nrequests
+                nrequests = atoi(optarg);
+                break;
+            case 't': // nthreads
+                nthreads = atoi(optarg);
+                break;
+            case 'h': // help
+                Usage();
+                exit(0);
+                break;
+            default:
+                Usage();
+                exit(1);
+        }
     }
-  }
 
-  if( EXIT_SUCCESS != workload_init(workload_path)){
-    fprintf(stderr, "Unable to load workload file %s.\n", workload_path);
-    exit(EXIT_FAILURE);
-  }
+    if( EXIT_SUCCESS != workload_init(workload_path))
+    {
+        fprintf(stderr, "Unable to load workload file %s.\n", workload_path);
+        exit(EXIT_FAILURE);
+    }
 
-  gfc_global_init();
+    gfc_global_init();
 
-  InitializeThreadConstructs();
+    InitializeThreadConstructs();
 
     /*Making the threads for requests...*/
     for(i = 0; i < nthreads; i++)
@@ -231,6 +237,7 @@ int main(int argc, char **argv) {
         settings->Port = port;
         settings->Server = server;
         settings->NumOfRequest = nrequests;
+        settings->ThreadID = _tid[i];
 
         int err = 0;
         err = pthread_create(&(_tid[i]), NULL, (void*)&ProcessRequest, settings);
@@ -243,8 +250,8 @@ int main(int argc, char **argv) {
     // Wait for processing to complete
     for(i=0;i < nthreads; i++)
     {
-        printf("Joining thread: %d\n", i);
         pthread_join(_tid[i], NULL);
+        printf("Joined thread: %d\n", i);
     }
 
     gfc_global_cleanup();
