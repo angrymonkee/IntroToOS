@@ -10,7 +10,7 @@ all: gfserver_main gfclient_download
 gfserver_main: gfserver.o handler.o gfserver_main.o content.o steque.o
 	$(CC) -o $@ $(CFLAGS) $(CURL_CFLAGS) $^ $(LDFLAGS) $(CURL_LIBS)
 
-gfclient_download: gfclient.o workload.o gfclient_download.o
+gfclient_download: gfclient.o workload.o gfclient_download.o steque.o
 	$(CC) -o $@ $(CFLAGS) $^ $(LDFLAGS)
 
 .PHONY: clean

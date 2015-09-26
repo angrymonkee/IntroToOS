@@ -21,6 +21,7 @@
 extern ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg);
 extern void InitializeThreadPool(int numberOfThreads);
 extern void InitializeThreadConstructs();
+extern void ThreadCleanup();
 
 /* Main ========================================================= */
 int main(int argc, char **argv) {
@@ -28,7 +29,7 @@ int main(int argc, char **argv) {
   unsigned short port = 8888;
   char *content = "content.txt";
   gfserver_t *gfs;
-  int threads = 1;
+  int threads = 2;
 
   // Parse and set command line arguments
   while ((option_char = getopt(argc, argv, "p:t:c:h")) != -1) {
@@ -54,6 +55,7 @@ int main(int argc, char **argv) {
 
   content_init(content);
 
+  InitializeThreadConstructs();
   InitializeThreadPool(threads);
 
   /*Initializing server*/

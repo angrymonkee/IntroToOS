@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <pthread.h>
 
 #include "workload.h"
 #include "gfclient.h"
@@ -22,6 +23,9 @@
 "  -n [num_requests]   Requests download per thread (Default: 1)\n"           \
 "  -h                  Show this help message\n"                              \
 
+pthread_t _tid[100];
+pthread_mutex_t _fileLock;
+
 /* OPTIONS DESCRIPTOR ====================================================== */
 static struct option gLongOptions[] = {
   {"server",        required_argument,      NULL,           's'},
@@ -35,15 +39,10 @@ static struct option gLongOptions[] = {
 
 typedef struct ServerSettings
 {
-    char *server;
-    unsigned short port;
+    char *Server;
+    unsigned short Port;
+    int NumOfRequest;
 } ServerSettings;
-
-pthread_t tid[100];
-int _numberOfThreads = 0;
-pthread_mutex_t _queueLock;
-pthread_mutex_t _fileLock;
-steque_t *_queue;
 
 static void Usage() {
 	fprintf(stdout, "%s", USAGE);
@@ -91,18 +90,10 @@ static void writecb(void* data, size_t data_len, void *arg){
 }
 
 /* Threading =========================================================*/
-void ProcessRequests();
+void ProcessRequest(ServerSettings *settings);
 
 void InitializeThreadConstructs()
 {
-    steque_init(_queue);
-
-    if (pthread_mutex_init(&_queueLock, NULL) != 0)
-    {
-        printf("\n Queue lock mutex init failed\n");
-        exit(1);
-    }
-
     if (pthread_mutex_init(&_fileLock, NULL) != 0)
     {
         printf("\n File lock mutex init failed\n");
@@ -110,86 +101,76 @@ void InitializeThreadConstructs()
     }
 }
 
-void InitializeThreadPool(int numberOfThreads, char *server, unsigned short port)
+void ProcessRequest(ServerSettings *settings)
 {
-    _numberOfThreads = numberOfThreads;
-
-    ServerSettings settings;
-    settings.port = port;
-    settings.server = server;
-
-    int err = 0;
     int i;
-    for(i=0;i < _numberOfThreads; i++)
+    for(i=0;i < settings->NumOfRequest; i++)
     {
-        printf("Creating thread: %d\n", i);
+        char *req_path = workload_get_path();
 
-        // Create thread
-        err = pthread_create(&(tid[i]), NULL, (void*)&ProcessRequests, settings);
-        if (err != 0)
+        if(strlen(req_path) > 256)
         {
-            printf("\ncan't create thread :[%s]", strerror(err));
+          fprintf(stderr, "Request path exceeded maximum of 256 characters\n");
+          exit(EXIT_FAILURE);
         }
-    }
-}
 
-void ThreadCleanup()
-{
-    steque_destroy(_queue);
-}
-
-void ProcessRequests(ServerSettings *settings)
-{
-    while(1)
-    {
-        // Dequeue
-        pthread_mutex_lock(&_queueLock);
-        char *req_path = steque_pop(_queue);
-        pthread_mutex_unlock(&_queueLock);
-
-        if(req_path != NULL)
+        if(req_path == NULL)
         {
-            FILE *file;
-            char local_path[512];
-            int returncode;
+            fprintf(stderr, "Request path cannot be NULL or empty\n");
+            exit(EXIT_FAILURE);
+        }
 
-            localPath(req_path, local_path);
+        printf("Processing request\n");
 
-            pthread_mutex_lock(&_fileLock);
+        FILE *file;
+        char local_path[512];
+        int returncode;
 
-            file = openFile(local_path);
+        localPath(req_path, local_path);
 
-            gfcrequest_t *gfr;
-            gfr = gfc_create();
-            gfc_set_server(gfr, settings->server);
-            gfc_set_path(gfr, req_path);
-            gfc_set_port(gfr, settings->port);
-            gfc_set_writefunc(gfr, writecb);
-            gfc_set_writearg(gfr, file);
+        pthread_mutex_lock(&_fileLock);
 
-            fprintf(stdout, "Requesting %s%s\n", settings->server, req_path);
+        file = openFile(local_path);
 
-            if ( 0 > (returncode = gfc_perform(gfr))){
-              fprintf(stdout, "gfc_perform returned an error %d\n", returncode);
-              fclose(file);
-              if ( 0 > unlink(local_path))
+        gfcrequest_t *gfr;
+        gfr = gfc_create();
+        gfc_set_server(gfr, settings->Server);
+        gfc_set_path(gfr, req_path);
+        gfc_set_port(gfr, settings->Port);
+        gfc_set_writefunc(gfr, writecb);
+        gfc_set_writearg(gfr, file);
+
+        fprintf(stdout, "Requesting %s%s\n", settings->Server, req_path);
+
+        if ( 0 > (returncode = gfc_perform(gfr)))
+        {
+            fprintf(stdout, "gfc_perform returned an error %d\n", returncode);
+            fclose(file);
+            if ( 0 > unlink(local_path))
+            {
                 fprintf(stderr, "unlink failed on %s\n", local_path);
             }
-            else {
-                fclose(file);
-            }
+        }
+        else
+        {
+            fclose(file);
+        }
 
-            pthread_mutex_unlock(&_fileLock);
+        pthread_mutex_unlock(&_fileLock);
 
-            if ( gfc_get_status(gfr) != GF_OK){
-              if ( 0 > unlink(local_path))
+        if ( gfc_get_status(gfr) != GF_OK)
+        {
+            if ( 0 > unlink(local_path))
+            {
                 fprintf(stderr, "unlink failed on %s\n", local_path);
             }
-
-            fprintf(stdout, "Status: %s\n", gfc_strstatus(gfc_get_status(gfr)));
-            fprintf(stdout, "Received %zu of %zu bytes\n", gfc_get_bytesreceived(gfr), gfc_get_filelen(gfr));
         }
+
+        fprintf(stdout, "Status: %s\n", gfc_strstatus(gfc_get_status(gfr)));
+        fprintf(stdout, "Received %zu of %zu bytes\n", gfc_get_bytesreceived(gfr), gfc_get_filelen(gfr));
     }
+
+    pthread_exit(NULL);
 }
 
 /* Main ========================================================= */
@@ -203,11 +184,6 @@ int main(int argc, char **argv) {
   int option_char = 0;
   int nrequests = 1;
   int nthreads = 1;
-//  int returncode;
-//  gfcrequest_t *gfr;
-//  FILE *file;
-  char *req_path;
-//  char local_path[512];
 
   // Parse and set command line arguments
   while ((option_char = getopt_long(argc, argv, "s:p:w:n:t:h", gLongOptions, NULL)) != -1) {
@@ -245,56 +221,33 @@ int main(int argc, char **argv) {
   gfc_global_init();
 
   InitializeThreadConstructs();
-  InitializeThreadPool(nthreads, server, port);
 
-  /*Making the requests...*/
-  for(i = 0; i < nrequests * nthreads; i++){
+    /*Making the threads for requests...*/
+    for(i = 0; i < nthreads; i++)
+    {
+        printf("Creating thread: %d\n", i);
 
-    req_path = workload_get_path();
+        ServerSettings *settings = malloc(sizeof(ServerSettings));
+        settings->Port = port;
+        settings->Server = server;
+        settings->NumOfRequest = nrequests;
 
-    if(strlen(req_path) > 256){
-      fprintf(stderr, "Request path exceeded maximum of 256 characters\n.");
-      exit(EXIT_FAILURE);
+        int err = 0;
+        err = pthread_create(&(_tid[i]), NULL, (void*)&ProcessRequest, settings);
+        if (err != 0)
+        {
+            printf("Can't create thread :[%s]\n", strerror(err));
+        }
     }
 
-    steque_enqueue(_queue, req_path);
+    // Wait for processing to complete
+    for(i=0;i < nthreads; i++)
+    {
+        printf("Joining thread: %d\n", i);
+        pthread_join(_tid[i], NULL);
+    }
 
+    gfc_global_cleanup();
 
-//
-//    localPath(req_path, local_path);
-//
-//    file = openFile(local_path);
-//
-//    gfr = gfc_create();
-//    gfc_set_server(gfr, server);
-//    gfc_set_path(gfr, req_path);
-//    gfc_set_port(gfr, port);
-//    gfc_set_writefunc(gfr, writecb);
-//    gfc_set_writearg(gfr, file);
-//
-//    fprintf(stdout, "Requesting %s%s\n", server, req_path);
-//
-//    if ( 0 > (returncode = gfc_perform(gfr))){
-//      fprintf(stdout, "gfc_perform returned an error %d\n", returncode);
-//      fclose(file);
-//      if ( 0 > unlink(local_path))
-//        fprintf(stderr, "unlink failed on %s\n", local_path);
-//    }
-//    else {
-//        fclose(file);
-//    }
-//
-//    if ( gfc_get_status(gfr) != GF_OK){
-//      if ( 0 > unlink(local_path))
-//        fprintf(stderr, "unlink failed on %s\n", local_path);
-//    }
-//
-//    fprintf(stdout, "Status: %s\n", gfc_strstatus(gfc_get_status(gfr)));
-//    fprintf(stdout, "Received %zu of %zu bytes\n", gfc_get_bytesreceived(gfr), gfc_get_filelen(gfr));
-  }
-
-  gfc_global_cleanup();
-  ThreadCleanup();
-
-  return 0;
+    return 0;
 }
