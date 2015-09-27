@@ -31,9 +31,43 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="main.c">
+		<Unit filename="Makefile" />
+		<Unit filename="content.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="content.h" />
+		<Unit filename="content.o" />
+		<Unit filename="content.txt" />
+		<Unit filename="gfclient.h" />
+		<Unit filename="gfclient.o" />
+		<Unit filename="gfclient_download" />
+		<Unit filename="gfclient_download.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="gfclient_download.o" />
+		<Unit filename="gfserver.h" />
+		<Unit filename="gfserver.o" />
+		<Unit filename="gfserver_main" />
+		<Unit filename="gfserver_main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="gfserver_main.o" />
+		<Unit filename="handler.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="handler.o" />
+		<Unit filename="log.h" />
+		<Unit filename="steque.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="steque.h" />
+		<Unit filename="steque.o" />
+		<Unit filename="workload.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="workload.h" />
+		<Unit filename="workload.o" />
+		<Unit filename="workload.txt" />
 		<Extensions>
 			<code_completion />
 			<debugger />

@@ -10,7 +10,8 @@
 
 #define BUFFER_SIZE 4096
 
-ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg){
+ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg)
+{
 	int fildes;
 	ssize_t file_len, bytes_transferred;
 	ssize_t read_len, write_len;

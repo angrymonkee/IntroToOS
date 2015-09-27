@@ -15,11 +15,14 @@
 #include <time.h>
 
 #include "gfserver.h"
-#include "utils.h"
 
 #define BUFSIZE 4096
 
-
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount);
+int NumDigits(int num);
+char *IntToString(int number);
+int StringToInt(char *str);
+char *TakeChars(char *array, int startIndex, int endIndex);
 
 typedef enum gfscheme_t
 {
@@ -52,91 +55,6 @@ typedef struct gfserver_t
 	handler Handle;
 	void (*HandlerArg)();
 }gfserver_t;
-
-
-/* Utils methods ====================================== */
-//
-//char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
-//{
-//    int totalCount = destinationCount + appendCount;
-//
-//    printf("Destination count %d\n", destinationCount);
-//    printf("Append count %d\n", appendCount);
-//    printf("Total count %d\n", totalCount);
-//
-//
-//    destination = realloc(destination, (totalCount + 1) * sizeof(char));
-//    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
-//    destination[totalCount] = '\0';
-//
-//    printf("Merged array: %s\n", destination);
-//    return destination;
-//}
-//
-//int NumDigits(int num)
-//{
-//	int count = 0;
-//	if (num == 0)
-//		count++;
-//
-//	while (num !=0)
-//	{
-//		count++;
-//		num/=10;
-//	}
-//
-//	return count;
-//}
-//
-//char *IntToString(int number)
-//{
-//	printf("Convert number [%d] to string\n", number);
-//	int intLen = NumDigits(number);
-//	printf("String length: %d\n", intLen);
-//
-//	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
-//	sprintf(stringizedNumber, "%d", number);
-//
-//	stringizedNumber[intLen + 1] = '\0';
-//
-//	printf("Stringized number: %s\n", stringizedNumber);
-//
-//	return stringizedNumber;
-//}
-//
-//int StringToInt(char *str)
-//{
-//	int dec = 0;
-//	int len = strlen(str);
-//	int i;
-//
-//	for(i = 0; i < len; i++)
-//	{
-//		dec = dec * 10 + (str[i] - '0');
-//	}
-//
-//	return dec;
-//}
-//
-//char *TakeChars(char *array, int startIndex, int endIndex)
-//{
-//	int arrayLen = endIndex - startIndex;
-//	char *subArray = malloc(arrayLen * sizeof(char));
-//	bzero(subArray, arrayLen * sizeof(char));
-//
-//	int i;
-//	int subIndex = 0;
-//	for(i = startIndex; startIndex <= endIndex; i++)
-//	{
-//		subArray[subIndex] = array[i];
-//		subIndex++;
-//	}
-//
-//	return subArray;
-//}
-//
-
-
 
 void sigchld_handler(int s)
 {
@@ -324,7 +242,7 @@ char *ReceiveRequest(int socketDescriptor)
 	int numbytes = 0;
 	long bufferBytes = 0;
 
-	char *buffer = calloc(1, sizeof(char));
+	char *requestBuffer = calloc(1, sizeof(char));
 
 	do
 	{
@@ -343,16 +261,16 @@ char *ReceiveRequest(int socketDescriptor)
 		else
 		{
 			printf("Recieved %d bytes\n", numbytes);
-			buffer = MergeArrays(buffer, bufferBytes / sizeof(char), incomingStream, numbytes / sizeof(char));
+			requestBuffer = MergeArrays(requestBuffer, bufferBytes / sizeof(char), incomingStream, numbytes / sizeof(char));
 			bufferBytes += numbytes;
 		}
 
-	}while(numbytes > 0 && !(strstr(buffer, "\r\n\r\n")));
+	}while(numbytes > 0 && !(strstr(requestBuffer, "\r\n\r\n")));
 
-	if(strlen(buffer) > 1)
+	if(strlen(requestBuffer) > 1)
 	{
-		printf("Request received...%s\n", buffer);
-		return buffer;
+		printf("Request received...%s\n", requestBuffer);
+		return requestBuffer;
 	}
 	else
 	{
@@ -366,15 +284,13 @@ char *BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 	char *statusStr = StatusToString(status);
 	char *terminator = "\r\n\r\n";
 
+    int space = 1;
 	if(file_len > 0)
 	{
         printf("File length greater than zero.\n");
-		int space = 1;
 		int bufLen = strlen(schemeStr) + space + strlen(statusStr) + space + NumDigits(file_len) + space + strlen(terminator);
-//		serializedBuffer = realloc(serializedBuffer, bufferSize);
 
 		char *serializedBuffer = calloc(bufLen + 1, sizeof(char));
-
 		strcpy(serializedBuffer, schemeStr);
 		strcat(serializedBuffer, " ");
 		strcat(serializedBuffer, statusStr);
@@ -390,11 +306,9 @@ char *BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 	else
 	{
         printf("File length equal to zero.\n");
-        int space = 1;
 		int bufLen = strlen(schemeStr) + space + strlen(statusStr) + space + strlen(terminator);
 
 		char *serializedBuffer = calloc(bufLen + 1, sizeof(char));
-
 		strcpy(serializedBuffer, schemeStr);
 		strcat(serializedBuffer, " ");
 		strcat(serializedBuffer, statusStr);
@@ -447,8 +361,6 @@ gfcontext_t *BuildContextFromRequestString(char *request)
 	context->Method = ParseMethod(strtok_r(NULL, delimiter, &saveptr));
 	context->FilePath = strtok_r(NULL, delimiter, &saveptr);
 	context->Status = GF_OK;
-
-	// TODO: Need to fix this to accommodate file paths with spaces
 
 	if(context->Scheme == NO_SCHEME)
 	{
@@ -593,4 +505,83 @@ void gfserver_serve(gfserver_t *gfs)
 			close(clientSocket);
 		}
     }
+}
+
+/* Utils methods ====================================== */
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
+{
+    int totalCount = destinationCount + appendCount;
+
+    printf("Destination count %d\n", destinationCount);
+    printf("Append count %d\n", appendCount);
+    printf("Total count %d\n", totalCount);
+
+    destination = realloc(destination, (totalCount + 1) * sizeof(char));
+    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+    destination[totalCount] = '\0';
+
+    printf("Merged array: %s\n", destination);
+    return destination;
+}
+
+int NumDigits(int num)
+{
+	int count = 0;
+	if (num == 0)
+		count++;
+
+	while (num !=0)
+	{
+		count++;
+		num/=10;
+	}
+
+	return count;
+}
+
+char *IntToString(int number)
+{
+	printf("Convert number [%d] to string\n", number);
+	int intLen = NumDigits(number);
+	printf("String length: %d\n", intLen);
+
+	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
+	sprintf(stringizedNumber, "%d", number);
+
+	stringizedNumber[intLen + 1] = '\0';
+
+	printf("Stringized number: %s\n", stringizedNumber);
+
+	return stringizedNumber;
+}
+
+int StringToInt(char *str)
+{
+	int dec = 0;
+	int len = strlen(str);
+	int i;
+
+	for(i = 0; i < len; i++)
+	{
+		dec = dec * 10 + (str[i] - '0');
+	}
+
+	return dec;
+}
+
+char *TakeChars(char *array, int startIndex, int endIndex)
+{
+	int arrayLen = endIndex - startIndex;
+	char *subArray = malloc(arrayLen * sizeof(char));
+	bzero(subArray, arrayLen * sizeof(char));
+
+	int i;
+	int subIndex = 0;
+	for(i = startIndex; startIndex <= endIndex; i++)
+	{
+		subArray[subIndex] = array[i];
+		subIndex++;
+	}
+
+	return subArray;
 }

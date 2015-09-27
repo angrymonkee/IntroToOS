@@ -1,0 +1,110 @@
+# depslib dependency file v1.0
+1427830867 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/content.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/stat.h>
+	<string.h>
+	<unistd.h>
+	<fcntl.h>
+
+1443063795 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfclient.c
+	<stdio.h>
+	<stdlib.h>
+	<unistd.h>
+	<pthread.h>
+	<errno.h>
+	<netinet/in.h>
+	<string.h>
+	<ctype.h>
+	<sys/socket.h>
+	<netdb.h>
+	<sys/types.h>
+	<arpa/inet.h>
+	<sys/wait.h>
+	<signal.h>
+	<time.h>
+	"gfclient.h"
+
+1443063607 /home/dan/Code/IntoToOS/Projects/Project1/Part1/gfclient.h
+	<stdlib.h>
+
+1443060673 /home/dan/Code/IntoToOS/Projects/Project1/Part1/utils.h
+
+1443058463 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfclient_download.c
+	<errno.h>
+	<getopt.h>
+	<stdlib.h>
+	<string.h>
+	<sys/stat.h>
+	<stdio.h>
+	<unistd.h>
+	<stdint.h>
+	"workload.h"
+	"gfclient.h"
+
+1430970503 /home/dan/Code/IntoToOS/Projects/Project1/Part1/workload.h
+
+1442706623 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver_main.c
+	<errno.h>
+	<getopt.h>
+	<signal.h>
+	<strings.h>
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	"gfserver.h"
+	"content.h"
+
+1443064429 /home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.h
+	<sys/types.h>
+
+1428243720 /home/dan/Code/IntoToOS/Projects/Project1/Part1/content.h
+
+1436914841 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/handler.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+	"content.h"
+
+1442895429 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/utils.c
+	<stdlib.h>
+	<stdio.h>
+	<unistd.h>
+	<pthread.h>
+	<errno.h>
+	<netinet/in.h>
+	<string.h>
+	<ctype.h>
+	<sys/socket.h>
+	<netdb.h>
+	"utils.h"
+
+1431115757 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/workload.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<pthread.h>
+	"workload.h"
+
+1442978210 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.c
+	<stdio.h>
+	<unistd.h>
+	<stdlib.h>
+	<string.h>
+	<netdb.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<arpa/inet.h>
+	<stdlib.h>
+	<errno.h>
+	<sys/wait.h>
+	<signal.h>
+	<time.h>
+	"gfserver.h"
+	"utils.h"
+

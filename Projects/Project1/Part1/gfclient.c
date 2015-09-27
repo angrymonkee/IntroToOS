@@ -15,13 +15,11 @@
 #include <time.h>
 
 #include "gfclient.h"
-#include "utils.h"
 
 #define BUFSIZE 4096
 
 #define HEADER_FOUND 1
 #define HEADER_NOT_FOUND 0
-
 
 
 typedef enum gfmethod_t
@@ -64,92 +62,12 @@ typedef struct gfcrequest_t
 	response_message_t Response;
 } gfcrequest_t;
 
-
-/* Utils methods ====================================== */
-//
-//char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
-//{
-//    int totalCount = destinationCount + appendCount;
-//
-//    printf("Destination count %d\n", destinationCount);
-//    printf("Append count %d\n", appendCount);
-//    printf("Total count %d\n", totalCount);
-//
-//
-//    destination = realloc(destination, (totalCount + 1) * sizeof(char));
-//    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
-//    destination[totalCount] = '\0';
-//
-//    printf("Merged array: %s\n", destination);
-//    return destination;
-//}
-//
-//int NumDigits(int num)
-//{
-//	int count = 0;
-//	if (num == 0)
-//		count++;
-//
-//	while (num !=0)
-//	{
-//		count++;
-//		num/=10;
-//	}
-//
-//	return count;
-//}
-//
-//char *IntToString(int number)
-//{
-//	printf("Convert number [%d] to string\n", number);
-//	int intLen = NumDigits(number);
-//	printf("String length: %d\n", intLen);
-//
-//	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
-//	sprintf(stringizedNumber, "%d", number);
-//
-//	stringizedNumber[intLen + 1] = '\0';
-//
-//	printf("Stringized number: %s\n", stringizedNumber);
-//
-//	return stringizedNumber;
-//}
-//
-//int StringToInt(char *str)
-//{
-//	int dec = 0;
-//	int len = strlen(str);
-//	int i;
-//
-//	for(i = 0; i < len; i++)
-//	{
-//		dec = dec * 10 + (str[i] - '0');
-//	}
-//
-//	return dec;
-//}
-//
-//char *TakeChars(char *array, int startIndex, int endIndex)
-//{
-//	int arrayLen = endIndex - startIndex;
-//	char *subArray = malloc(arrayLen * sizeof(char));
-//	bzero(subArray, arrayLen * sizeof(char));
-//
-//	int i;
-//	int subIndex = 0;
-//	for(i = startIndex; startIndex <= endIndex; i++)
-//	{
-//		subArray[subIndex] = array[i];
-//		subIndex++;
-//	}
-//
-//	return subArray;
-//}
-//
-
-
-
 /* Helper methods ====================================== */
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount);
+int NumDigits(int num);
+char *IntToString(int number);
+int StringToInt(char *str);
+char *TakeChars(char *array, int startIndex, int endIndex);
 
 char *SchemeToString(gfscheme_t scheme)
 {
@@ -239,10 +157,8 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 	strcat(serializedBuffer, path);
 	strcat(serializedBuffer, " ");
 	strcat(serializedBuffer, terminator);
-	//serializedBuffer[bufferLen + 1] = '\0';
 
 	printf("Buffer contents: %s\n", serializedBuffer);
-
 	return bufferLen;
 }
 
@@ -270,8 +186,6 @@ void ParseHeaderSetResponse(gfcrequest_t *gfr, char *headerBuffer)
 
 	gfr->Response.Status = ParseStatus(strtok_r(NULL, delimiter, &saveptr));
 	gfr->Response.Length = StringToInt(strtok_r(NULL, delimiter, &saveptr));
-
-	// TODO: Need to fix this to accommodate file paths with spaces
 
     printf("Response.Status: %d\n", gfr->Response.Status);
     printf("Response.Length: %ld\n", gfr->Response.Length);
@@ -302,8 +216,6 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
         if(bytesLeft < BUFSIZE)
             chunk = bytesLeft;
 
-//		char *subsetArray = malloc(chunk);
-//		memset(subsetArray, '\0', chunk / sizeof(char));
 		char *subsetArray = &requestBuffer[numbytes - bytesLeft];
 
         printf("Numbytes: %ld\n", numbytes);
@@ -337,7 +249,6 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
 	do
 	{
-		// Write stream in chunks based on BUFSIZE
 		char *incomingStream = malloc(BUFSIZE);
 		memset(incomingStream, '\0', BUFSIZE);
 
@@ -378,8 +289,8 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
                         startOfContent += 4 * sizeof(char); // Advance pointer to after header terminator
                         long lengthOfRemainingContent = (numbytes / sizeof(char)) - (startOfContent - incomingStream);
                         contentBytes += lengthOfRemainingContent * sizeof(char);
+
                         printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, lengthOfRemainingContent);
-                        //contentBytes += (strlen(endOfHeader) * sizeof(char));
 
                         if(gfr->WriteContent)
                         {
@@ -462,17 +373,12 @@ int ConnectToServer(char *hostName, unsigned short portNo)
         return 2;
     }
 
-    // Connect to found address
-	//~ char serverAddress[INET6_ADDRSTRLEN];
-    //~ inet_ntop(a->ai_family, get_in_addr((struct sockaddr *)a->ai_addr), serverAddress, sizeof serverAddress);
-
     printf("Connecting to server at address [%s] on port [%hu]\n", serverAddress, portNo);
 
     freeaddrinfo(addresses);
 
 	return socketDescriptor;
 }
-
 
 gfcrequest_t *gfc_create()
 {
@@ -584,3 +490,83 @@ void gfc_global_init()
 void gfc_global_cleanup()
 {
 }
+
+char *MergeArrays(char *destination, int destinationCount, char *append, int appendCount)
+{
+    int totalCount = destinationCount + appendCount;
+
+    printf("Destination count %d\n", destinationCount);
+    printf("Append count %d\n", appendCount);
+    printf("Total count %d\n", totalCount);
+
+
+    destination = realloc(destination, (totalCount + 1) * sizeof(char));
+    memcpy(destination + destinationCount * sizeof(char), append, appendCount * sizeof(char));
+    destination[totalCount] = '\0';
+
+    printf("Merged array: %s\n", destination);
+    return destination;
+}
+
+int NumDigits(int num)
+{
+	int count = 0;
+	if (num == 0)
+		count++;
+
+	while (num !=0)
+	{
+		count++;
+		num/=10;
+	}
+
+	return count;
+}
+
+char *IntToString(int number)
+{
+	printf("Convert number [%d] to string\n", number);
+	int intLen = NumDigits(number);
+	printf("String length: %d\n", intLen);
+
+	char *stringizedNumber = malloc((intLen + 1) * sizeof(char));
+	sprintf(stringizedNumber, "%d", number);
+
+	stringizedNumber[intLen + 1] = '\0';
+
+	printf("Stringized number: %s\n", stringizedNumber);
+
+	return stringizedNumber;
+}
+
+int StringToInt(char *str)
+{
+	int dec = 0;
+	int len = strlen(str);
+	int i;
+
+	for(i = 0; i < len; i++)
+	{
+		dec = dec * 10 + (str[i] - '0');
+	}
+
+	return dec;
+}
+
+char *TakeChars(char *array, int startIndex, int endIndex)
+{
+	int arrayLen = endIndex - startIndex;
+	char *subArray = malloc(arrayLen * sizeof(char));
+	bzero(subArray, arrayLen * sizeof(char));
+
+	int i;
+	int subIndex = 0;
+	for(i = startIndex; startIndex <= endIndex; i++)
+	{
+		subArray[subIndex] = array[i];
+		subIndex++;
+	}
+
+	return subArray;
+}
+
