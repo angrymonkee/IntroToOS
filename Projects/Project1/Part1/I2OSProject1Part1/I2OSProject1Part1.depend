@@ -70,18 +70,7 @@
 	"gfserver.h"
 	"content.h"
 
-1443065916 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/utils.c
-	<stdlib.h>
-	<stdio.h>
-	<unistd.h>
-	<pthread.h>
-	<errno.h>
-	<netinet/in.h>
-	<string.h>
-	<ctype.h>
-	<sys/socket.h>
-	<netdb.h>
-	"utils.h"
+1443325883 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/utils.c
 
 1431115757 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/workload.c
 	<stdio.h>
@@ -94,7 +83,7 @@
 	<stdio.h>
 	<stdlib.h>
 
-1443323919 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.c
+1443402753 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.c
 	<stdio.h>
 	<unistd.h>
 	<stdlib.h>

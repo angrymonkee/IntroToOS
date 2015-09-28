@@ -179,13 +179,24 @@ void ParseHeaderSetResponse(gfcrequest_t *gfr, char *headerBuffer)
 	char *delimiter = " ";
 	char *saveptr;
 
-	printf("Parsing header response string [%s]\n", headerBuffer);
+    char chopHeaderBuffer[strlen(headerBuffer)];
+    strcpy(chopHeaderBuffer, headerBuffer);
+
+	printf("Parsing header response string [%s]\n", chopHeaderBuffer);
 
 	// Strips off scheme
-	strtok_r(headerBuffer, delimiter, &saveptr);
+	strtok_r(chopHeaderBuffer, delimiter, &saveptr);
 
 	gfr->Response.Status = ParseStatus(strtok_r(NULL, delimiter, &saveptr));
-	gfr->Response.Length = StringToInt(strtok_r(NULL, delimiter, &saveptr));
+	gfr->Status = gfr->Response.Status;
+	if(gfr->Response.Status == GF_OK)
+	{
+        gfr->Response.Length = StringToInt(strtok_r(NULL, delimiter, &saveptr));
+	}
+	else
+	{
+        gfr->Response.Length = 0;
+	}
 
     printf("Response.Status: %d\n", gfr->Response.Status);
     printf("Response.Length: %ld\n", gfr->Response.Length);
@@ -195,41 +206,42 @@ void SendRequestToServer(gfcrequest_t *gfr, int socketDescriptor)
 {
 	printf("Preparing request for transfer\n");
 
-	if(gfr == NULL)
+	if(gfr != NULL)
 	{
-		printf("Invalid request\n");
-		exit(1);
+        char *requestBuffer = calloc(1, sizeof(char));
+
+        long requestLen = BuildRequestString(gfr, requestBuffer);
+
+        long numbytes = requestLen * sizeof(char);
+        long bytesLeft = numbytes;
+
+        printf("Writing %ld bytes to socket\n", bytesLeft);
+
+        while(bytesLeft >= 1)
+        {
+            long chunk = BUFSIZE;
+            if(bytesLeft < BUFSIZE)
+                chunk = bytesLeft;
+
+            char *subsetArray = &requestBuffer[numbytes - bytesLeft];
+
+            printf("Numbytes: %ld\n", numbytes);
+            printf("BytesLeft: %ld\n", bytesLeft);
+            printf("MemsetBuffer: %s\n", subsetArray);
+
+            printf("Transmitting %ld to server\n", bytesLeft);
+            bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
+
+            printf("%lu bytes left...\n", bytesLeft);
+        }
+
+        printf("Free request buffer\n");
+        free(requestBuffer);
 	}
-
-	char *requestBuffer = calloc(1, sizeof(char));
-
-	long requestLen = BuildRequestString(gfr, requestBuffer);
-
-	long numbytes = requestLen * sizeof(char);
-	long bytesLeft = numbytes;
-
-	printf("Writing %ld bytes to socket\n", bytesLeft);
-
-	while(bytesLeft >= 1)
-	{
-        long chunk = BUFSIZE;
-        if(bytesLeft < BUFSIZE)
-            chunk = bytesLeft;
-
-		char *subsetArray = &requestBuffer[numbytes - bytesLeft];
-
-        printf("Numbytes: %ld\n", numbytes);
-        printf("BytesLeft: %ld\n", bytesLeft);
-		printf("MemsetBuffer: %s\n", subsetArray);
-
-        printf("Transmitting %ld to server\n", bytesLeft);
-        bytesLeft = bytesLeft - send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
-
-		printf("%lu bytes left...\n", bytesLeft);
+    else
+    {
+        printf("Invalid request, unable to send post to server\n");
 	}
-
-	printf("Free request buffer\n");
-	free(requestBuffer);
 }
 
 void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
@@ -271,18 +283,22 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
 				if(strstr(headerBuffer, "\r\n\r\n") != NULL)
 				{
+                    char *startOfContent = strstr(headerBuffer, "\r\n\r\n");
+                    long lengthOfHeader = startOfContent - headerBuffer;
+
                     // When end of header found then parse header and set response
                     ParseHeaderSetResponse(gfr, headerBuffer);
-                    printf("Header received [length: %ld]...\n", strlen(headerBuffer));
+                    printf("Header received [length: %ld]...\n", lengthOfHeader);
 
                     if(gfr->ReceiveHeader)
                     {
                         printf("Calling back to HeaderFunct...\n");
-                        gfr->ReceiveHeader(headerBuffer, strlen(headerBuffer), gfr->BuildHeaderArgument);
+                        gfr->ReceiveHeader(headerBuffer, lengthOfHeader, gfr->BuildHeaderArgument);
 					}
+
 					headerReceived = HEADER_FOUND;
 
-                    if(gfr->Status != GF_ERROR || gfr->Status != GF_FILE_NOT_FOUND)
+                    if(gfr->Response.Status == GF_OK)
                     {
                         // All remaining bytes are part of content NOT header
                         char *startOfContent = strstr(incomingStream, "\r\n\r\n");
@@ -290,12 +306,11 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
                         long lengthOfRemainingContent = (numbytes / sizeof(char)) - (startOfContent - incomingStream);
                         contentBytes += lengthOfRemainingContent * sizeof(char);
 
-                        printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, lengthOfRemainingContent);
+                        printf("Numbytes = %d, Remaining bytes = %ld\n", numbytes, contentBytes);
 
                         if(gfr->WriteContent)
                         {
                             printf("Calling back to WriteFunc...\n");
-                            //gfr->WriteContent(endOfHeader, strlen(endOfHeader) - 4, gfr->BuildWriteArgument);
                             gfr->WriteContent(startOfContent, lengthOfRemainingContent, gfr->BuildWriteArgument);
                         }
                     }
@@ -314,7 +329,7 @@ void ReceiveReponseFromServer(gfcrequest_t *gfr, int socketDescriptor)
 
         free(incomingStream);
 
-	}while(numbytes > 0 && (gfr->Status != GF_FILE_NOT_FOUND || gfr->Status != GF_ERROR));
+	}while(numbytes > 0 && gfr->Status != GF_FILE_NOT_FOUND && gfr->Status != GF_ERROR);
 
     free(headerBuffer);
 

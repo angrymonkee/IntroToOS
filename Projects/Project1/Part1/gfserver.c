@@ -172,7 +172,7 @@ char *StatusToString(gfstatus_t status)
 			return "GF_ERROR";
 		default:
 			printf("Invalid status, unable to stringize %d.", status);
-			exit(-1);
+			return "GF_ERROR";
 	}
 }
 
@@ -185,53 +185,42 @@ char* SchemeToString(gfscheme_t scheme)
 			break;
 		default:
 			printf("Invalid scheme, unable to stringize %d.", scheme);
-			exit(-1);
-	}
-}
-
-char* MethodToString(gfmethod_t method)
-{
-	switch(method)
-	{
-		case GET:
-			return "GET";
-			break;
-		default:
-			printf("Invalid method, unable to stringize %d.", method);
-			exit(-1);
+			return NULL;
 	}
 }
 
 long SendToSocket(char *buffer, int socketDescriptor, size_t len)
 {
-	if(buffer == NULL || len == 0)
-	{
-		printf("No data to send over socket\n");
-		exit(1);
-	}
-
-	long numbytes = len;
-	long bytesLeft = numbytes;
-
-	printf("Writing %lu bytes to socket\n", bytesLeft);
-
     long totalBytesSent = 0;
-	while(bytesLeft >= 1)
+
+	if(buffer != NULL && len > 0)
 	{
-        long chunk = BUFSIZE;
-        if(bytesLeft < BUFSIZE)
-            chunk = bytesLeft;
+        long numbytes = len;
+        long bytesLeft = numbytes;
 
-		char *subsetArray = malloc(chunk);
-		memset(subsetArray, '\0', chunk / sizeof(char));
-		subsetArray = &buffer[numbytes - bytesLeft];
+        printf("Writing %lu bytes to socket\n", bytesLeft);
 
-        long bytesSent = send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
-        bytesLeft = bytesLeft - bytesSent;
-        totalBytesSent += bytesSent;
+        while(bytesLeft >= 1)
+        {
+            long chunk = BUFSIZE;
+            if(bytesLeft < BUFSIZE)
+                chunk = bytesLeft;
 
-		printf("%lu bytes left...\n", bytesLeft);
+            char *subsetArray = malloc(chunk);
+            memset(subsetArray, '\0', chunk / sizeof(char));
+            subsetArray = &buffer[numbytes - bytesLeft];
+
+            long bytesSent = send(socketDescriptor, subsetArray, chunk / sizeof(char), 0);
+            bytesLeft = bytesLeft - bytesSent;
+            totalBytesSent += bytesSent;
+
+            printf("%lu bytes left...\n", bytesLeft);
+        }
 	}
+	else
+	{
+        printf("No data to send over socket\n");
+    }
 
 	printf("%ld bytes of data sent successfully...\n", totalBytesSent);
 	return totalBytesSent;
@@ -280,8 +269,14 @@ char *ReceiveRequest(int socketDescriptor)
 
 char *BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 {
+    char *statusStr = StatusToString(status);
+
 	char *schemeStr = SchemeToString(GETFILE);
-	char *statusStr = StatusToString(status);
+	if(schemeStr == NULL)
+	{
+       statusStr = StatusToString(GF_ERROR);
+	}
+
 	char *terminator = "\r\n\r\n";
 
     int space = 1;
