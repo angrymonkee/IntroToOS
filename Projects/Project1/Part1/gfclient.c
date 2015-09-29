@@ -164,11 +164,11 @@ int BuildRequestString(gfcrequest_t *gfr, char *serializedBuffer)
 
 gfstatus_t ParseStatus(char *str)
 {
-    if(strcmp(str, "GF_OK") == 0)
+    if(strcmp(str, "GF_OK") == 0 || strcmp(str, "OK") == 0)
 		return GF_OK;
-    else if(strcmp(str, "GF_FILE_NOT_FOUND") == 0)
+    else if(strcmp(str, "GF_FILE_NOT_FOUND") == 0 || strcmp(str, "FILE_NOT_FOUND") == 0)
         return GF_FILE_NOT_FOUND;
-    else if(strcmp(str, "GF_ERROR") == 0)
+    else if(strcmp(str, "GF_ERROR") == 0 || strcmp(str, "ERROR") == 0)
         return GF_ERROR;
 	else
 		return GF_INVALID;

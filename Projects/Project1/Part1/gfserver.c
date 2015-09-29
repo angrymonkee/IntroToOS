@@ -278,9 +278,9 @@ char *BuildHeaderString(gfcontext_t *ctx, gfstatus_t status, size_t file_len)
 	}
 
 	char *terminator = "\r\n\r\n";
-
     int space = 1;
-	if(file_len > 0)
+
+	if(file_len > 0 && status == GF_OK)
 	{
         printf("File length greater than zero.\n");
 		int bufLen = strlen(schemeStr) + space + strlen(statusStr) + space + NumDigits(file_len) + space + strlen(terminator);
