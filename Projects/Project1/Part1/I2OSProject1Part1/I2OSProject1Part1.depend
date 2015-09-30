@@ -7,7 +7,7 @@
 	<unistd.h>
 	<fcntl.h>
 
-1443324996 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfclient.c
+1443570740 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfclient.c
 	<stdio.h>
 	<stdlib.h>
 	<unistd.h>
@@ -83,18 +83,17 @@
 	<stdio.h>
 	<stdlib.h>
 
-1443402753 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.c
+1443571175 source:/home/dan/Code/IntoToOS/Projects/Project1/Part1/gfserver.c
 	<stdio.h>
-	<unistd.h>
 	<stdlib.h>
+	<unistd.h>
+	<errno.h>
+	<netinet/in.h>
 	<string.h>
 	<netdb.h>
-	<sys/types.h>
 	<sys/socket.h>
-	<netinet/in.h>
+	<sys/types.h>
 	<arpa/inet.h>
-	<stdlib.h>
-	<errno.h>
 	<sys/wait.h>
 	<signal.h>
 	<time.h>

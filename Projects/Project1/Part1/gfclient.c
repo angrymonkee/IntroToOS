@@ -452,6 +452,7 @@ int gfc_perform(gfcrequest_t *gfr)
 	close(socketDescriptor);
 
     gfr->Status = GF_OK;
+    gfr->Response.Status = GF_OK;
 
 	return 0;
 }
