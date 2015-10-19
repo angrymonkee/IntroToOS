@@ -24,12 +24,15 @@
 static struct option gLongOptions[] = {
   {"port",          required_argument,      NULL,           'p'},
   {"thread-count",  required_argument,      NULL,           't'},
-  {"server",        required_argument,      NULL,           's'},         
+  {"server",        required_argument,      NULL,           's'},
   {"help",          no_argument,            NULL,           'h'},
   {NULL,            0,                      NULL,             0}
 };
 
-extern ssize_t handle_with_file(gfcontext_t *ctx, char *path, void* arg);
+extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
+//extern void InitializeThreadPool(int numberOfThreads);
+//extern void InitializeThreadConstructs();
+//extern void ThreadCleanup();
 
 static gfserver_t gfs;
 
@@ -68,18 +71,20 @@ int main(int argc, char **argv) {
         break;
       case 's': // file-path
         server = optarg;
-        break;                                          
+        break;
       case 'h': // help
         fprintf(stdout, "%s", USAGE);
         exit(0);
-        break;       
+        break;
       default:
         fprintf(stderr, "%s", USAGE);
         exit(1);
     }
   }
-  
+
   /* SHM initialization...*/
+
+
 
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
@@ -87,10 +92,11 @@ int main(int argc, char **argv) {
   /*Setting options*/
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
-  gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_file);
+  gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
   for(i = 0; i < nworkerthreads; i++)
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data");
 
   /*Loops forever*/
   gfserver_serve(&gfs);
+//  ThreadCleanup();
 }
