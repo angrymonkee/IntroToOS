@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
   for(i = 0; i < nworkerthreads; i++)
-    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "data");
+    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "http://s3.amazonaws.com/content.udacity-data.com/");
 
   /*Loops forever*/
   gfserver_serve(&gfs);
