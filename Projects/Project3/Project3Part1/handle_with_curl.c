@@ -18,8 +18,7 @@ void ProcessRequests(int *threadID);
 typedef struct request_context_t
 {
     gfcontext_t *Context;
-    char *Path;
-    char *RootUrl;
+    char *Url;
     char *Data;
     long Size;
 }request_context_t;
@@ -81,12 +80,14 @@ void ThreadCleanup()
     printf("Thread cleaned successfully\n");
 }
 
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
+static size_t WriteMemoryCallback(void *contents, size_t size, size_t length, void *userp)
 {
-    size_t realsize = size * nmemb;
+    printf("WritingMemoryCallback...\n");
+
+    size_t byteSize = size * length;
     request_context_t *ctx = (request_context_t *)userp;
 
-    ctx->Data = realloc(ctx->Data, ctx->Size + realsize + 1);
+    ctx->Data = realloc(ctx->Data, ctx->Size + byteSize + 1);
 
     if(ctx->Data == NULL)
     {
@@ -94,16 +95,16 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
         return 0;
     }
 
-    memcpy(&(ctx->Data[ctx->Size]), contents, realsize);
-    ctx->Size += realsize;
+    memcpy(&(ctx->Data[ctx->Size]), contents, byteSize);
+    ctx->Size += byteSize;
     ctx->Data[ctx->Size] = 0;
 
-    return realsize;
+    return byteSize;
 }
 
 void ProcessRequests(int *threadID)
 {
-    printf("Processing requests\n");
+    printf("Processing requests on thread %d\n", *threadID);
 
     CURL *handle = curl_easy_init();
 
@@ -123,18 +124,30 @@ void ProcessRequests(int *threadID)
 
         if(ctx != NULL)
         {
-            char url[4096];
-            strcpy(url,ctx->RootUrl);
-            strcat(url,ctx->Path);
+//            char url[4096];
+//
+//            printf("url before: %s\n", url);
+//            printf("Root Url: %s\n", ctx->RootUrl);
+//            printf("Path: %s\n", ctx->Path);
+//            printf("Size: %ld\n", ctx->Size);
+//            strcpy(url, ctx->RootUrl);
+//            printf("url middle: %s\n", url);
+//            strcat(url, ctx->Path);
+//            printf("url after: %s\n", url);
 
-            curl_easy_setopt(handle, CURLOPT_URL, url);
+            printf("Setting CURLOPT_URL: %s\n", ctx->Url);
+            curl_easy_setopt(handle, CURLOPT_URL, ctx->Url);
+
             ctx->Data = malloc(1);
             ctx->Size = 0;
 
             curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
             curl_easy_setopt(handle, CURLOPT_WRITEDATA, (void *)ctx);
 
+            printf("performing curl request...\n");
             CURLcode result = curl_easy_perform(handle);
+
+            printf("Evaluating results...\n");
 
             if(result != CURLE_OK)
             {
@@ -142,34 +155,43 @@ void ProcessRequests(int *threadID)
             }
             else
             {
+                printf("Sending header...\n");
                 // Send file data back to client
                 gfs_sendheader(ctx->Context, GF_OK, ctx->Size);
 
+                printf("Sending content...\n");
                 long bytes_transferred = 0;
                 int chunkSize = 4096;
                 while(bytes_transferred < ctx->Size)
                 {
                     ssize_t write_len = gfs_send(ctx->Context, &ctx->Data[bytes_transferred], chunkSize);
+                    printf("Sent %lu of %ld bytes\n", write_len, ctx->Size);
                     bytes_transferred += write_len;
                 }
+
+                free(ctx->Data);
 
 //                return bytes_transferred;
             }
         }
     }
 
+    curl_easy_cleanup(handle);
+
     pthread_exit(NULL);
 }
 
-
 ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg)
 {
+    char url[4096];
+    strcpy(url, (char *)arg);
+    strcat(url, path);
+
     // Queue request
-    request_context_t context;
-    context.Context = ctx;
-    context.Path = path;
-    context.RootUrl = arg;
-    steque_enqueue(_queue, &context);
+    request_context_t request;
+    request.Context = ctx;
+    request.Url = url;
+    steque_enqueue(_queue, &request);
     return 0;
 }
 

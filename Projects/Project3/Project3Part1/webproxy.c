@@ -30,9 +30,9 @@ static struct option gLongOptions[] = {
 };
 
 extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
-//extern void InitializeThreadPool(int numberOfThreads);
-//extern void InitializeThreadConstructs();
-//extern void ThreadCleanup();
+extern void InitializeThreadPool(int numberOfThreads);
+extern void InitializeThreadConstructs();
+extern void ThreadCleanup();
 
 static gfserver_t gfs;
 
@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
   int i, option_char = 0;
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
-  char *server = "s3.amazonaws.com/content.udacity-data.com";
+  char *server = "http://s3.amazonaws.com/content.udacity-data.com";
 
   if (signal(SIGINT, _sig_handler) == SIG_ERR){
     fprintf(stderr,"Can't catch SIGINT...exiting.\n");
@@ -83,7 +83,8 @@ int main(int argc, char **argv) {
   }
 
   /* SHM initialization...*/
-
+  InitializeThreadConstructs();
+  InitializeThreadPool(nworkerthreads);
 
 
   /*Initializing server*/
@@ -94,9 +95,10 @@ int main(int argc, char **argv) {
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
   for(i = 0; i < nworkerthreads; i++)
-    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, "http://s3.amazonaws.com/content.udacity-data.com/");
+    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
 
   /*Loops forever*/
   gfserver_serve(&gfs);
-//  ThreadCleanup();
+  ThreadCleanup();
+  return 0;
 }

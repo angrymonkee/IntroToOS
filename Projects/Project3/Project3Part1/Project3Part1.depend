@@ -57,7 +57,7 @@
 	<stdio.h>
 	"steque.h"
 
-1445295569 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/webproxy.c
+1445388648 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/webproxy.c
 	<errno.h>
 	<getopt.h>
 	<signal.h>
@@ -65,5 +65,14 @@
 	<stdlib.h>
 	<stdio.h>
 	<signal.h>
+	"gfserver.h"
+
+1445388546 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/handle_with_curl.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
 	"gfserver.h"
 
