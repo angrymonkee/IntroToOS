@@ -7,11 +7,13 @@
 
 #include "gfserver.h"
 
-pthread_t _tid[100];
 int _numberOfThreads = 0;
-pthread_mutex_t _queueLock;
-steque_t *_queue;
 int _threadsAlive = 1;
+pthread_t _tid[100];
+pthread_mutex_t _queueLock;
+pthread_mutex_t _socketLock;
+steque_t *_queue;
+
 
 void ProcessRequests(int *threadID);
 
@@ -20,7 +22,7 @@ typedef struct request_context_t
     gfcontext_t *Context;
     char *Url;
     char *Data;
-    long Size;
+    size_t Size;
 }request_context_t;
 
 void InitializeCurl()
@@ -124,16 +126,7 @@ void ProcessRequests(int *threadID)
 
         if(ctx != NULL)
         {
-//            char url[4096];
-//
-//            printf("url before: %s\n", url);
-//            printf("Root Url: %s\n", ctx->RootUrl);
-//            printf("Path: %s\n", ctx->Path);
-//            printf("Size: %ld\n", ctx->Size);
-//            strcpy(url, ctx->RootUrl);
-//            printf("url middle: %s\n", url);
-//            strcat(url, ctx->Path);
-//            printf("url after: %s\n", url);
+            long responseCode= 0;
 
             printf("Setting CURLOPT_URL: %s\n", ctx->Url);
             curl_easy_setopt(handle, CURLOPT_URL, ctx->Url);
@@ -147,31 +140,55 @@ void ProcessRequests(int *threadID)
             printf("performing curl request...\n");
             CURLcode result = curl_easy_perform(handle);
 
+            curl_easy_getinfo(handle,CURLINFO_RESPONSE_CODE, &responseCode);
+
             printf("Evaluating results...\n");
 
             if(result != CURLE_OK)
             {
                 fprintf(stderr, "Curl failed to perform: %s\n", curl_easy_strerror(result));
+                pthread_mutex_lock(&_socketLock);
+                gfs_sendheader(ctx->Context, GF_ERROR, ctx->Size);
+                pthread_mutex_unlock(&_socketLock);
             }
             else
             {
-                printf("Sending header...\n");
-                // Send file data back to client
-                gfs_sendheader(ctx->Context, GF_OK, ctx->Size);
-
-                printf("Sending content...\n");
-                long bytes_transferred = 0;
-                int chunkSize = 4096;
-                while(bytes_transferred < ctx->Size)
+                if(responseCode == 404)
                 {
-                    ssize_t write_len = gfs_send(ctx->Context, &ctx->Data[bytes_transferred], chunkSize);
-                    printf("Sent %lu of %ld bytes\n", write_len, ctx->Size);
-                    bytes_transferred += write_len;
+                    printf("Sending GF_FILE_NOT_FOUND header...\n");
+                    pthread_mutex_lock(&_socketLock);
+                    gfs_sendheader(ctx->Context, GF_FILE_NOT_FOUND, ctx->Size);
+                    pthread_mutex_unlock(&_socketLock);
+                }
+                else
+                {
+                    printf("Sending GF_OK header...\n");
+
+                    pthread_mutex_lock(&_socketLock);
+                    gfs_sendheader(ctx->Context, GF_OK, ctx->Size);
+                    pthread_mutex_unlock(&_socketLock);
+
+                    printf("Sending content...\n");
+                    size_t bytes_transferred = 0;
+                    size_t chunkSize = 4096;
+
+                    pthread_mutex_lock(&_socketLock);
+                    while(bytes_transferred < ctx->Size)
+                    {
+                        size_t write_len = gfs_send(ctx->Context, &ctx->Data[bytes_transferred/sizeof(char)], chunkSize);
+                        if (write_len < 0)
+                        {
+                            fprintf(stderr, "Write error, %zd, %zu, %zu\n", write_len, bytes_transferred, ctx->Size/sizeof(char));
+                            pthread_mutex_unlock(&_socketLock);
+                            exit(-1);
+                        }
+                        bytes_transferred += write_len;
+                        printf("Sent %ld of %ld bytes\n", bytes_transferred, ctx->Size);
+                    }
+                    pthread_mutex_unlock(&_socketLock);
                 }
 
                 free(ctx->Data);
-
-//                return bytes_transferred;
             }
         }
     }
@@ -194,5 +211,3 @@ ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg)
     steque_enqueue(_queue, &request);
     return 0;
 }
-
-
