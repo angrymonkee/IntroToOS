@@ -30,9 +30,12 @@ static struct option gLongOptions[] = {
 };
 
 extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
-extern void InitializeThreadPool(int numberOfThreads);
-extern void InitializeThreadConstructs();
-extern void ThreadCleanup();
+//extern void InitializeThreadPool(int numberOfThreads);
+//extern void InitializeThreadConstructs();
+//extern void ThreadCleanup();
+
+extern void CurlCleanup();
+extern void InitializeCurl();
 
 static gfserver_t gfs;
 
@@ -71,6 +74,7 @@ int main(int argc, char **argv) {
         break;
       case 's': // file-path
         server = optarg;
+        printf("set server to %s\n", server);
         break;
       case 'h': // help
         fprintf(stdout, "%s", USAGE);
@@ -83,9 +87,10 @@ int main(int argc, char **argv) {
   }
 
   /* SHM initialization...*/
-  InitializeThreadConstructs();
-  InitializeThreadPool(nworkerthreads);
+//  InitializeThreadConstructs();
+//  InitializeThreadPool(nworkerthreads);
 
+    InitializeCurl();
 
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
@@ -94,11 +99,14 @@ int main(int argc, char **argv) {
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
   gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_curl);
+  printf("server set to %s\n", server);
   for(i = 0; i < nworkerthreads; i++)
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
 
   /*Loops forever*/
   gfserver_serve(&gfs);
-  ThreadCleanup();
+//  ThreadCleanup();
+    CurlCleanup();
+
   return 0;
 }
