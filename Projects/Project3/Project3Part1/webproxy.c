@@ -30,10 +30,6 @@ static struct option gLongOptions[] = {
 };
 
 extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
-//extern void InitializeThreadPool(int numberOfThreads);
-//extern void InitializeThreadConstructs();
-//extern void ThreadCleanup();
-
 extern void CurlCleanup();
 extern void InitializeCurl();
 
@@ -87,9 +83,6 @@ int main(int argc, char **argv) {
   }
 
   /* SHM initialization...*/
-//  InitializeThreadConstructs();
-//  InitializeThreadPool(nworkerthreads);
-
     InitializeCurl();
 
   /*Initializing server*/
@@ -105,8 +98,8 @@ int main(int argc, char **argv) {
 
   /*Loops forever*/
   gfserver_serve(&gfs);
-//  ThreadCleanup();
-    CurlCleanup();
+
+  CurlCleanup();
 
   return 0;
 }
