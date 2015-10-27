@@ -7,19 +7,6 @@
 
 #include "gfserver.h"
 
-//Replace with an implementation of handle_with_cache and any other
-//functions you may need.
-
-void InitializeCache()
-{
-    // This is where I want to implement the logic to connect to the cache
-}
-
-void TrashCache()
-{
-    // This is where I want to implement the logic to disconnect from the cache
-}
-
 ssize_t handle_with_file(gfcontext_t *ctx, char *path, void* arg){
 	int fildes;
 	size_t file_len, bytes_transferred;
@@ -32,10 +19,10 @@ ssize_t handle_with_file(gfcontext_t *ctx, char *path, void* arg){
 
 	if( 0 > (fildes = open(buffer, O_RDONLY))){
 		if (errno == ENOENT)
-			/* If the file just wasn't found, then send FILE_NOT_FOUND code*/
+			/* If the file just wasn't found, then send FILE_NOT_FOUND code*/ 
 			return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
 		else
-			/* Otherwise, it must have been a server error. gfserver library will handle*/
+			/* Otherwise, it must have been a server error. gfserver library will handle*/ 
 			return EXIT_FAILURE;
 	}
 
