@@ -6,8 +6,76 @@
 #include <errno.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/shm.h>
 
 #include "gfserver.h"
+
+#define SHM_SIZE 1024  /* make it a 1K shared memory segment */
+
+
+/* =================== Shared memory segment setup and management =================== */
+
+typedef struct shm_open_notification
+{
+    long mtype;
+    int SharedMemoryID;
+}shm_open_notification;
+
+int CreateSharedMemorySegment()
+{
+    key_t key;
+    int shmid;
+
+    /* make the key: */
+    if ((key = ftok("project3SHM", 'A')) == -1)
+    {
+        perror("ftok");
+        exit(1);
+    }
+
+    /* connect to (and possibly create) the segment: */
+    if ((shmid = shmget(key, SHM_SIZE, 0644 | IPC_CREAT)) == -1)
+    {
+        perror("shmget");
+        exit(1);
+    }
+}
+
+char *AttachToSharedMemorySegment(int shmid)
+{
+    char *data;
+
+    /* attach to the segment to get a pointer to it: */
+    data = shmat(shmid, (void *)0, 0);
+    if (data == (char *)(-1))
+    {
+        perror("shmat");
+        exit(1);
+    }
+
+    return data;
+}
+
+void DetachFromSharedMemorySegment(void *data)
+{
+    /* detach from the segment: */
+    if (shmdt(data) == -1)
+    {
+        perror("shmdt");
+        exit(1);
+    }
+}
+
+void DestroySharedMemorySegment(int shmid)
+{
+    if(shmctl(shmid, IPC_RMID, NULL) == -1)
+    {
+        perror("Unable to destroy shared memory segment");
+        exit(1);
+    }
+}
+
+/* =================== Message queue setup and management =================== */
 
 int _requestQueueId;
 int _responseQueueId;
@@ -19,20 +87,37 @@ typedef enum cache_status
     NOT_IN_CACHE
 }
 
-typedef struct message_request
+typedef enum shm_response_status
+{
+    DATA_TRANSFER,
+    TRANSFER_COMPLETE
+}
+
+typedef struct cache_status_request
 {
     long mtype;
     char Path[256];
-    int ResultCode;
-    message_response Response;
-} message_request;
+    cache_status_response Response;
+} cache_status_request;
 
-typedef struct message_response
+typedef struct cache_status_response
 {
     long mtype;
     cache_status Status;
-    char Data[1024];
-} message_response;
+} cache_status_response;
+
+typedef struct shm_request
+{
+    long mtype;
+    void *SharedMemory;
+
+} shm_request;
+
+typedef struct shm_response
+{
+    long mtype;
+    shm_response_status Status;
+} shm_response;
 
 long GetID()
 {
@@ -122,7 +207,10 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     // if in cache send send via shared memory else get from server
     if(request.Response.Status == IN_CACHE)
     {
+
+
         // Initiate file transfer from cache using shared memory
+        int memoryID = CreateSharedMemorySegment();
     }
     else
     {
