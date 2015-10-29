@@ -9,17 +9,30 @@
 
 #include "gfserver.h"
 
-int _queueId;
+int _requestQueueId;
+int _responseQueueId;
 static long _idCounter;
 
-// Should return "0" in result if not found, anything else is a positive
-struct message_request
+typedef enum cache_status
+{
+    IN_CACHE,
+    NOT_IN_CACHE
+}
+
+typedef struct message_request
 {
     long mtype;
     char Path[256];
     int ResultCode;
-    long RequestID;
+    message_response Response;
 } message_request;
+
+typedef struct message_response
+{
+    long mtype;
+    cache_status Status;
+    char Data[1024];
+} message_response;
 
 long GetID()
 {
@@ -29,17 +42,33 @@ long GetID()
 
 void InitializeCache()
 {
-    key_t key;
-
-    if ((key = ftok("project3", 'A')) == -1)
+    // Need to create a message queue to handle requests
+    // to the cache.
+    key_t requestKey;
+    if ((requestKey = ftok("project3Request", 'A')) == -1)
     {
-        perror("Unable to create message queue key\n");
+        perror("Unable to create request message queue key\n");
         exit(1);
     }
 
-    if ((_queueId = msgget(key, 0666 | IPC_CREAT)) == -1)
+    if ((_requestQueueId = msgget(requestKey, 0666 | IPC_CREAT)) == -1)
     {
-        perror("Unable to create message queue\n");
+        perror("Unable to create request message queue\n");
+        exit(1);
+    }
+
+    // Need to create a message queue to handle responses
+    // from the cache.
+    key_t responseKey;
+    if ((responseKey = ftok("project3Response", 'A')) == -1)
+    {
+        perror("Unable to create response message queue key\n");
+        exit(1);
+    }
+
+    if ((_responseQueueId = msgget(responseKey, 0666 | IPC_CREAT)) == -1)
+    {
+        perror("Unable to create response message queue\n");
         exit(1);
     }
 }
@@ -55,33 +84,50 @@ void CleanupCache()
 
 void SendRequestToCache(message_request *request)
 {
-    request->mtype = 1;
-
     // Calculates the actual message size being sent to the queue
     int size = sizeof(message_request) - sizeof(long);
-    if (msgsnd(_queueId, request, size, 0) == -1)
+    if (msgsnd(_requestQueueId, request, size, 0) == -1)
     {
-        perror("msgsnd");
+        perror("Unable to properly send request to cache\n");
     }
 }
 
 void RetreiveResponse(message_request *request)
 {
+    int retryCounter = 0;
+    int maxRetries = 10;
+    while(request->Response == NULL && retryCounter < maxRetries)
+    {
+        if(msgrcv(_responseQueueId, &(request->Response), sizeof(message_response) - sizeof(long), request->mtype, 0) <= 0)
+        {
+            retryCounter++;
+        }
+    }
 
+    if(request->Response == NULL)
+    {
+        perror("Unable to retrieve response for request\n");
+    }
 }
 
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
     message_request request;
     request.Path = path;
-    request.RequestID = GetID();
+    request.mtype = GetID();
 
-    // Check to see if file exists in cache
     SendRequestToCache(&request);
-
+    RetreiveResponse(&request);
 
     // if in cache send send via shared memory else get from server
-
+    if(request.Response.Status == IN_CACHE)
+    {
+        // Initiate file transfer from cache using shared memory
+    }
+    else
+    {
+        // Initiate file transfer from server using curl
+    }
 
 	int fildes;
 	size_t file_len, bytes_transferred;
