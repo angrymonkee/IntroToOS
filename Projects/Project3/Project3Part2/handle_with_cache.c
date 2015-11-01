@@ -41,12 +41,10 @@ int CreateSharedMemorySegment()
     }
 }
 
-char *AttachToSharedMemorySegment(int shmid)
+shm_data_transfer *AttachToSharedMemorySegment(int shmid)
 {
-    char *data;
-
     /* attach to the segment to get a pointer to it: */
-    data = shmat(shmid, (void *)0, 0);
+    shm_data_transfer *data = (shm_data_transfer *)shmat(shmid, (void *)0, 0);
     if (data == (char *)(-1))
     {
         perror("shmat");
@@ -106,18 +104,19 @@ typedef struct cache_status_response
     cache_status Status;
 } cache_status_response;
 
-typedef struct shm_request
+//typedef struct shm_request
+//{
+//    long mtype;
+//    void *SharedMemory;
+//
+//} shm_request;
+
+typedef struct shm_data_transfer
 {
     long mtype;
-    void *SharedMemory;
-
-} shm_request;
-
-typedef struct shm_response
-{
-    long mtype;
+    char Data[1024];
     shm_response_status Status;
-} shm_response;
+} shm_data_transfer;
 
 long GetID()
 {
@@ -167,23 +166,23 @@ void CleanupCache()
     }
 }
 
-void SendRequestToCache(message_request *request)
+void CheckFileInCache(cache_status_request *request)
 {
     // Calculates the actual message size being sent to the queue
-    int size = sizeof(message_request) - sizeof(long);
+    int size = sizeof(cache_status_request) - sizeof(long);
     if (msgsnd(_requestQueueId, request, size, 0) == -1)
     {
         perror("Unable to properly send request to cache\n");
     }
 }
 
-void RetreiveResponse(message_request *request)
+void RetreiveCacheStatus(cache_status_request *request)
 {
     int retryCounter = 0;
     int maxRetries = 10;
     while(request->Response == NULL && retryCounter < maxRetries)
     {
-        if(msgrcv(_responseQueueId, &(request->Response), sizeof(message_response) - sizeof(long), request->mtype, 0) <= 0)
+        if(msgrcv(_responseQueueId, &(request->Response), sizeof(cache_status_response) - sizeof(long), request->mtype, 0) <= 0)
         {
             retryCounter++;
         }
@@ -195,68 +194,101 @@ void RetreiveResponse(message_request *request)
     }
 }
 
+void SendShareMemoryOpenNotification(shm_open_notification *request)
+{
+    // Calculates the actual message size being sent to the queue
+    int size = sizeof(shm_open_notification) - sizeof(long);
+    if (msgsnd(_requestQueueId, request, size, 0) == -1)
+    {
+        perror("Unable to send open message to cache\n");
+    }
+}
+
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
     message_request request;
     request.Path = path;
     request.mtype = GetID();
 
-    SendRequestToCache(&request);
-    RetreiveResponse(&request);
+    CheckFileInCache(&request);
+    RetreiveCacheStatus(&request);
 
     // if in cache send send via shared memory else get from server
     if(request.Response.Status == IN_CACHE)
     {
-
-
         // Initiate file transfer from cache using shared memory
         int memoryID = CreateSharedMemorySegment();
+
+        shm_open_notification notification;
+        notification.mtype = GetID();
+        notification.SharedMemoryID = memoryID;
+        SendShareMemoryOpenNotification(notification);
+
+        shm_data_transfer data;
+        do
+        {
+            data = AttachToSharedMemorySegment(memoryID);
+            if(data.Data != NULL)
+            {
+                // Write bytes out to socket
+            }
+        }
+        while(data.Status != TRANSFER_COMPLETE)
+
+        DetachFromSharedMemorySegment(data);
+
+
+
+
+
+
+
+        int fildes;
+        size_t file_len, bytes_transferred;
+        ssize_t read_len, write_len;
+        char buffer[4096];
+        char *data_dir = arg;
+
+        strcpy(buffer,data_dir);
+        strcat(buffer,path);
+
+        if( 0 > (fildes = open(buffer, O_RDONLY))){
+            if (errno == ENOENT)
+                /* If the file just wasn't found, then send FILE_NOT_FOUND code*/
+                return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
+            else
+                /* Otherwise, it must have been a server error. gfserver library will handle*/
+                return EXIT_FAILURE;
+        }
+
+        /* Calculating the file size */
+        file_len = lseek(fildes, 0, SEEK_END);
+        lseek(fildes, 0, SEEK_SET);
+
+        gfs_sendheader(ctx, GF_OK, file_len);
+
+        /* Sending the file contents chunk by chunk. */
+        bytes_transferred = 0;
+        while(bytes_transferred < file_len){
+            read_len = read(fildes, buffer, 4096);
+            if (read_len <= 0){
+                fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
+                return EXIT_FAILURE;
+            }
+            write_len = gfs_send(ctx, buffer, read_len);
+            if (write_len != read_len){
+                fprintf(stderr, "handle_with_file write error");
+                return EXIT_FAILURE;
+            }
+            bytes_transferred += write_len;
+        }
+
+        return bytes_transferred;
     }
     else
     {
         // Initiate file transfer from server using curl
+        printf("Path (%s) not found in cache. Retrieving from server...\n", request.Path);
     }
-
-	int fildes;
-	size_t file_len, bytes_transferred;
-	ssize_t read_len, write_len;
-	char buffer[4096];
-	char *data_dir = arg;
-
-	strcpy(buffer,data_dir);
-	strcat(buffer,path);
-
-	if( 0 > (fildes = open(buffer, O_RDONLY))){
-		if (errno == ENOENT)
-			/* If the file just wasn't found, then send FILE_NOT_FOUND code*/
-			return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
-		else
-			/* Otherwise, it must have been a server error. gfserver library will handle*/
-			return EXIT_FAILURE;
-	}
-
-	/* Calculating the file size */
-	file_len = lseek(fildes, 0, SEEK_END);
-	lseek(fildes, 0, SEEK_SET);
-
-	gfs_sendheader(ctx, GF_OK, file_len);
-
-	/* Sending the file contents chunk by chunk. */
-	bytes_transferred = 0;
-	while(bytes_transferred < file_len){
-		read_len = read(fildes, buffer, 4096);
-		if (read_len <= 0){
-			fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-			return EXIT_FAILURE;
-		}
-		write_len = gfs_send(ctx, buffer, read_len);
-		if (write_len != read_len){
-			fprintf(stderr, "handle_with_file write error");
-			return EXIT_FAILURE;
-		}
-		bytes_transferred += write_len;
-	}
-
-	return bytes_transferred;
 }
 
