@@ -102,6 +102,7 @@ typedef struct cache_status_response
 {
     long mtype;
     cache_status Status;
+    size_t Size;
 } cache_status_response;
 
 //typedef struct shm_request
@@ -114,7 +115,7 @@ typedef struct cache_status_response
 typedef struct shm_data_transfer
 {
     long mtype;
-    char Data[1024];
+    char Data[SHM_SIZE];
     shm_response_status Status;
 } shm_data_transfer;
 
@@ -204,9 +205,18 @@ void SendShareMemoryOpenNotification(shm_open_notification *request)
     }
 }
 
+void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request)
+{
+    printf("Sending GF_OK header...\n");
+
+    pthread_mutex_lock(&_socketLock);
+    gfs_sendheader(ctx, GF_OK, request->Response.Size);
+    pthread_mutex_unlock(&_socketLock);
+}
+
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
-    message_request request;
+    cache_status_request request;
     request.Path = path;
     request.mtype = GetID();
 
@@ -224,6 +234,8 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         notification.SharedMemoryID = memoryID;
         SendShareMemoryOpenNotification(notification);
 
+        WriteHeaderToClient(ctx, request);
+
         shm_data_transfer data;
         do
         {
@@ -231,64 +243,52 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
             if(data.Data != NULL)
             {
                 // Write bytes out to socket
+                WriteBytesToClient(data);
             }
         }
         while(data.Status != TRANSFER_COMPLETE)
 
         DetachFromSharedMemorySegment(data);
-
-
-
-
-
-
-
-        int fildes;
-        size_t file_len, bytes_transferred;
-        ssize_t read_len, write_len;
-        char buffer[4096];
-        char *data_dir = arg;
-
-        strcpy(buffer,data_dir);
-        strcat(buffer,path);
-
-        if( 0 > (fildes = open(buffer, O_RDONLY))){
-            if (errno == ENOENT)
-                /* If the file just wasn't found, then send FILE_NOT_FOUND code*/
-                return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
-            else
-                /* Otherwise, it must have been a server error. gfserver library will handle*/
-                return EXIT_FAILURE;
-        }
-
-        /* Calculating the file size */
-        file_len = lseek(fildes, 0, SEEK_END);
-        lseek(fildes, 0, SEEK_SET);
-
-        gfs_sendheader(ctx, GF_OK, file_len);
-
-        /* Sending the file contents chunk by chunk. */
-        bytes_transferred = 0;
-        while(bytes_transferred < file_len){
-            read_len = read(fildes, buffer, 4096);
-            if (read_len <= 0){
-                fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-                return EXIT_FAILURE;
-            }
-            write_len = gfs_send(ctx, buffer, read_len);
-            if (write_len != read_len){
-                fprintf(stderr, "handle_with_file write error");
-                return EXIT_FAILURE;
-            }
-            bytes_transferred += write_len;
-        }
-
-        return bytes_transferred;
     }
     else
     {
         // Initiate file transfer from server using curl
         printf("Path (%s) not found in cache. Retrieving from server...\n", request.Path);
     }
+}
+
+void WriteBytesToClient(gfserver_t *ctx, cache_status_request *request, shm_data_transfer data)
+{
+
+    printf("Sending content...\n");
+    size_t bytes_transferred = 0;
+    size_t chunkSize = SHM_SIZE;
+
+    pthread_mutex_lock(&_socketLock);
+    while(bytes_transferred < request->Response.Size)
+    {
+        size_t bytesLeft = request->Response.Size - bytes_transferred;
+        if(bytesLeft < chunkSize)
+        {
+            chunkSize = bytesLeft;
+        }
+
+        size_t sentBytes = gfs_send(ctx, &(data.Data[bytes_transferred]), chunkSize);
+        if (sentBytes == -1)
+        {
+            printf("Write error, %zd, %zu, %zu\n", sentBytes, bytes_transferred, request->Response.Size);
+            pthread_mutex_unlock(&_socketLock);
+            exit(-1);
+        }
+        else
+        {
+            bytes_transferred += sentBytes;
+            printf("Sent %ld, %ld of %ld bytes\n", sentBytes, bytes_transferred, request->Response.Size);
+        }
+    }
+    pthread_mutex_unlock(&_socketLock);
+
+    // ???????????
+    free(request.Data);
 }
 
