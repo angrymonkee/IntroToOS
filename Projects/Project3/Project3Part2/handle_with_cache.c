@@ -11,7 +11,10 @@
 #include "gfserver.h"
 
 #define SHM_SIZE 1024  /* make it a 1K shared memory segment */
-
+#define CACHE_STATUS_REQUEST_MTYPE 1
+#define CACHE_STATUS_RESPONSE_MTYPE 2
+#define SHM_OPEN_NOTIFICATION_MTYPE 3
+#define SHM_DATA_TRANSFER_MTYPE 4
 
 /* =================== Shared memory segment setup and management =================== */
 
@@ -105,13 +108,6 @@ typedef struct cache_status_response
     size_t Size;
 } cache_status_response;
 
-//typedef struct shm_request
-//{
-//    long mtype;
-//    void *SharedMemory;
-//
-//} shm_request;
-
 typedef struct shm_data_transfer
 {
     long mtype;
@@ -181,9 +177,11 @@ void RetreiveCacheStatus(cache_status_request *request)
 {
     int retryCounter = 0;
     int maxRetries = 10;
+    size_t size = sizeof(cache_status_response) - sizeof(long);
+
     while(request->Response == NULL && retryCounter < maxRetries)
     {
-        if(msgrcv(_responseQueueId, &(request->Response), sizeof(cache_status_response) - sizeof(long), request->mtype, 0) <= 0)
+        if(msgrcv(_responseQueueId, &(request->Response), size, request->mtype, 0) <= 0)
         {
             retryCounter++;
         }
