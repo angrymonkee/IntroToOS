@@ -44,6 +44,14 @@ void Usage() {
 }
 
 
+/* ========= Threading ========== */
+pthread_t _tid[100];
+int _numberOfThreads = 0;
+pthread_mutex_t _queueLock;
+pthread_mutex_t _fileLock;
+steque_t *_queue;
+int _threadsAlive = 1;
+
 /* ========= Message Queue Funcationality ========== */
 
 int _requestQueueId;
@@ -132,62 +140,52 @@ void CleanupCache()
     }
 }
 
-void MonitorCacheStatusRequests()
+void HandleIncomingRequests()
 {
-    int size = sizeof(cache_status_request) - sizeof(long);
-
     while(_monitorIncomingRequests)
     {
         cache_status_request *request;
-        if(msgrcv(_requestQueueId, &request, size, CACHE_STATUS_REQUEST_MTYPE, 0) > 0)
+        shm_open_notification *notification;
+        if(msgrcv(_requestQueueId, &request, sizeof(cache_status_request) - sizeof(long), CACHE_STATUS_REQUEST_MTYPE, 0) > 0)
         {
-            // Check if in cache
+            request->Response.mtype = CACHE_STATUS_RESPONSE_MTYPE;
+
             if(simplecache_get(request->Path) > 0)
             {
-                SendCacheStatusResponse(request);
+                request->Response.Status = cache_status.IN_CACHE;
+                request->Response.Size = documentSize;
             }
+            else
+            {
+                request->Response.Status = cache_status.NOT_IN_CACHE;
+                request->Response.Size = 0;
+            }
+
+            SendCacheStatusResponse(request);
+        }
+        else if(msgrcv(_requestQueueId, &notification, sizeof(shm_open_notification) - sizeof(long), SHM_OPEN_NOTIFICATION_MTYPE, 0) > 0)
+        {
+            steque_enqueue(_queue, &notification);
         }
     }
 }
 
 void SendCacheStatusResponse(cache_status_request *request)
 {
-    request->Response.Status = cache_status.IN_CACHE;
-    request->Response.mtype = CACHE_STATUS_RESPONSE_MTYPE;
-    request->Response.Size =
-
     int size = sizeof(cache_status_request) - sizeof(long);
     if (msgsnd(_responseQueueId, request, size, 0) == -1)
     {
-        perror("Unable to properly send request to cache\n");
+        perror("Unable to properly send cache status response\n");
     }
 }
 
-void RetreiveCacheStatus(cache_status_request *request)
-{
-    int retryCounter = 0;
-    int maxRetries = 10;
-    while(request->Response == NULL && retryCounter < maxRetries)
-    {
-        if(msgrcv(_responseQueueId, &(request->Response), sizeof(cache_status_response) - sizeof(long), request->mtype, 0) <= 0)
-        {
-            retryCounter++;
-        }
-    }
-
-    if(request->Response == NULL)
-    {
-        perror("Unable to retrieve response for request\n");
-    }
-}
-
-void SendShareMemoryOpenNotification(shm_open_notification *request)
+void SendShareMemoryOpenNotification(shm_open_notification *notification)
 {
     // Calculates the actual message size being sent to the queue
     int size = sizeof(shm_open_notification) - sizeof(long);
-    if (msgsnd(_requestQueueId, request, size, 0) == -1)
+    if (msgsnd(_responseQueueId, notification, size, 0) == -1)
     {
-        perror("Unable to send open message to cache\n");
+        perror("Unable to send open notifications\n");
     }
 }
 
@@ -240,9 +238,9 @@ void CleanupThreads()
     printf("Thread cleaned successfully\n");
 }
 
-void ProcessRequests(int *threadID)
+void ProcessCacheTransfers(int *threadID)
 {
-    printf("Processing requests\n");
+    printf("Processing cache transfers\n");
 
     while(_threadsAlive == 1)
     {
@@ -253,53 +251,43 @@ void ProcessRequests(int *threadID)
 
         // Dequeue
         pthread_mutex_lock(&_queueLock);
-        request_context_t* ctx = steque_pop(_queue);
+        shm_open_notification* notification = steque_pop(_queue);
         pthread_mutex_unlock(&_queueLock);
-        printf("Popped context from queue on thread: %d\n", *threadID);
+        printf("Popped notification from queue on thread: %d\n", *threadID);
 
-        if(ctx != NULL)
+        if(notification != NULL)
         {
-            int fildes;
             ssize_t file_len, bytes_transferred;
             ssize_t read_len, write_len;
-            char buffer[BUFFER_SIZE];
+            char buffer[SHM_SIZE];
 
-            if( 0 > (fildes = content_get(ctx->Path)))
-            {
-                gfs_sendheader(ctx->Context, GF_FILE_NOT_FOUND, 0);
-                printf("File '%s' not found\n", ctx->Path);
-                continue;
-            }
+            shm_data_transfer transfer;
+
+            int descriptor = simplecache_get(notification->Path);
 
             /* Calculating the file size */
-            file_len = lseek(fildes, 0, SEEK_END);
-            printf("File size %ld calculaed\n", file_len);
-
-            gfs_sendheader(ctx->Context, GF_OK, file_len);
+            file_len = lseek(descriptor, 0, SEEK_END);
+            printf("File size %ld calculated\n", file_len);
 
             pthread_mutex_lock(&_fileLock);
 
             /* Sending the file contents chunk by chunk. */
             bytes_transferred = 0;
-            while(bytes_transferred < file_len){
-                read_len = pread(fildes, buffer, BUFFER_SIZE, bytes_transferred);
-                if (read_len <= 0){
+            while(bytes_transferred < file_len)
+            {
+                read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
+                if (read_len <= 0)
+                {
                     fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
                     gfs_abort(ctx->Context);
                     exit(-1);
                 }
-                write_len = gfs_send(ctx->Context, buffer, read_len);
-                if (write_len != read_len){
-                    fprintf(stderr, "handle_with_file write error");
-                    gfs_abort(ctx->Context);
-                    exit(-1);
-                }
-                bytes_transferred += write_len;
+
+
+                bytes_transferred += read_len;
             }
 
             pthread_mutex_unlock(&_fileLock);
-
-            // Pass back size
         }
     }
 
@@ -368,6 +356,7 @@ int main(int argc, char **argv) {
 
 	InitializeCache();
 	InitializeThreadConstructs();
+	InitializeThreadPool(nthreads);
 
     // One thread to service the status checks
 
