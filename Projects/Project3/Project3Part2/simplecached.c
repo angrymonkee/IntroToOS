@@ -283,8 +283,19 @@ void ProcessCacheTransfers(int *threadID)
                     exit(-1);
                 }
 
-
                 bytes_transferred += read_len;
+
+                shm_data_transfer *data = AttachToSharedMemorySegment(notification->SharedMemoryID);
+                strcpy(data->Data, buffer, SHM_SIZE);
+
+                if(bytes_transferred < file_len)
+                {
+                    data->Status = shm_response_status.DATA_TRANSFER;
+                }
+                else
+                {
+                    data->Status = shm_response_status.TRANSFER_COMPLETE;
+                }
             }
 
             pthread_mutex_unlock(&_fileLock);
@@ -293,18 +304,6 @@ void ProcessCacheTransfers(int *threadID)
 
     pthread_exit(NULL);
 }
-
-ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg)
-{
-    // Queue request
-    request_context_t context;
-    context.Context = ctx;
-    context.Path = path;
-    context.Arg = arg;
-    steque_enqueue(_queue, &context);
-    return 0;
-}
-
 
 
 

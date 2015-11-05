@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <semaphore.h>
 
 #include "gfserver.h"
 
@@ -18,11 +19,56 @@
 
 /* =================== Shared memory segment setup and management =================== */
 
+
+sem_t *CreateSemaphore()
+{
+    sem_t semaphore;
+    int semVal = sem_init(&semaphore ,1 ,1);
+    if ( semVal != 0)
+    {
+        perror ( " Couldn ’t initialize . " ) ;
+        exit (3) ;
+    }
+
+    semVal = sem_wait(&semaphore);
+
+    printf("Did trywait. Returned %d >\n", semVal);
+
+    getchar();
+
+    semVal = sem_trywait (& sp );
+
+    printf("Did trywait. Returned %d >\n", semVal);
+
+    getchar ();
+
+    semVal = sem_trywait (& sp ) ;
+
+    printf("Did trywait. Returned %d >\n", semVal);
+    getchar ();
+
+    sem_destroy (&semaphore);
+}
+
 typedef struct shm_open_notification
 {
     long mtype;
     int SharedMemoryID;
+    sem_t *SharedSemaphore;
 }shm_open_notification;
+
+typedef enum shm_response_status
+{
+    DATA_TRANSFER,
+    TRANSFER_COMPLETE
+}
+
+typedef struct shm_data_transfer
+{
+    long mtype;
+    char Data[SHM_SIZE];
+    shm_response_status Status;
+} shm_data_transfer;
 
 int CreateSharedMemorySegment()
 {
@@ -88,12 +134,6 @@ typedef enum cache_status
     NOT_IN_CACHE
 }
 
-typedef enum shm_response_status
-{
-    DATA_TRANSFER,
-    TRANSFER_COMPLETE
-}
-
 typedef struct cache_status_request
 {
     long mtype;
@@ -107,13 +147,6 @@ typedef struct cache_status_response
     cache_status Status;
     size_t Size;
 } cache_status_response;
-
-typedef struct shm_data_transfer
-{
-    long mtype;
-    char Data[SHM_SIZE];
-    shm_response_status Status;
-} shm_data_transfer;
 
 long GetID()
 {
@@ -230,19 +263,17 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         shm_open_notification notification;
         notification.mtype = GetID();
         notification.SharedMemoryID = memoryID;
+
         SendShareMemoryOpenNotification(notification);
 
         WriteHeaderToClient(ctx, request);
 
-        shm_data_transfer data;
+        shm_data_transfer data = AttachToSharedMemorySegment(memoryID);
+
         do
         {
-            data = AttachToSharedMemorySegment(memoryID);
-            if(data.Data != NULL)
-            {
-                // Write bytes out to socket
-                WriteBytesToClient(data);
-            }
+            sem_wait(notification->SharedSemaphore);
+            WriteBytesToClient(data);
         }
         while(data.Status != TRANSFER_COMPLETE)
 
@@ -257,7 +288,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 
 void WriteBytesToClient(gfserver_t *ctx, cache_status_request *request, shm_data_transfer data)
 {
-
     printf("Sending content...\n");
     size_t bytes_transferred = 0;
     size_t chunkSize = SHM_SIZE;
