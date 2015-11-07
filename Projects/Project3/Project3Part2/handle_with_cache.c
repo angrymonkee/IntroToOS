@@ -10,115 +10,55 @@
 #include <semaphore.h>
 
 #include "gfserver.h"
+#include "shm_channel.h"
 
-#define SHM_SIZE 1024  /* make it a 1K shared memory segment */
-#define CACHE_STATUS_REQUEST_MTYPE 1
-#define CACHE_STATUS_RESPONSE_MTYPE 2
-#define SHM_OPEN_NOTIFICATION_MTYPE 3
-#define SHM_DATA_TRANSFER_MTYPE 4
+//#define CACHE_STATUS_REQUEST_MTYPE 1
+//#define CACHE_STATUS_RESPONSE_MTYPE 2
+//#define SHM_OPEN_NOTIFICATION_MTYPE 3
+//#define SHM_DATA_TRANSFER_MTYPE 4
 
 /* =================== Shared memory segment setup and management =================== */
+pthread_mutex_t _segmentQueueLock;
+steque_t* _segmentQueue;
 
-
-sem_t *CreateSemaphore()
+void InitializeSharedSegmentPool(int nsegments)
 {
-    sem_t semaphore;
-    int semVal = sem_init(&semaphore ,1 ,1);
-    if ( semVal != 0)
+    _segmentQueue = malloc(sizeof(steque_t));
+    steque_init(_segmentQueue);
+    printf("Queue initialized\n");
+
+    if (pthread_mutex_init(&_segmentQueueLock, NULL) != 0)
     {
-        perror ( " Couldn ’t initialize . " ) ;
-        exit (3) ;
-    }
-
-    semVal = sem_wait(&semaphore);
-
-    printf("Did trywait. Returned %d >\n", semVal);
-
-    getchar();
-
-    semVal = sem_trywait (& sp );
-
-    printf("Did trywait. Returned %d >\n", semVal);
-
-    getchar ();
-
-    semVal = sem_trywait (& sp ) ;
-
-    printf("Did trywait. Returned %d >\n", semVal);
-    getchar ();
-
-    sem_destroy (&semaphore);
-}
-
-typedef struct shm_open_notification
-{
-    long mtype;
-    int SharedMemoryID;
-    sem_t *SharedSemaphore;
-}shm_open_notification;
-
-typedef enum shm_response_status
-{
-    DATA_TRANSFER,
-    TRANSFER_COMPLETE
-}
-
-typedef struct shm_data_transfer
-{
-    long mtype;
-    char Data[SHM_SIZE];
-    shm_response_status Status;
-} shm_data_transfer;
-
-int CreateSharedMemorySegment()
-{
-    key_t key;
-    int shmid;
-
-    /* make the key: */
-    if ((key = ftok("project3SHM", 'A')) == -1)
-    {
-        perror("ftok");
+        printf("\n Queue lock mutex init failed\n");
         exit(1);
     }
 
-    /* connect to (and possibly create) the segment: */
-    if ((shmid = shmget(key, SHM_SIZE, 0644 | IPC_CREAT)) == -1)
+    int i;
+    for (i = 0; i < nsegments; i++)
     {
-        perror("shmget");
-        exit(1);
+        int memoryID = CreateSharedMemorySegment();
+        sem_t* semaphore = CreateSemaphore();
+
+        shm_segment segment;
+        segment.SharedMemoryID = memoryID;
+        segment.SharedSemaphore = semaphore;
+        steque_enqueue(_segmentQueue, &segment);
     }
 }
 
-shm_data_transfer *AttachToSharedMemorySegment(int shmid)
+shm_segment* GetSegmentFromPool()
 {
-    /* attach to the segment to get a pointer to it: */
-    shm_data_transfer *data = (shm_data_transfer *)shmat(shmid, (void *)0, 0);
-    if (data == (char *)(-1))
+    while(1)
     {
-        perror("shmat");
-        exit(1);
-    }
-
-    return data;
-}
-
-void DetachFromSharedMemorySegment(void *data)
-{
-    /* detach from the segment: */
-    if (shmdt(data) == -1)
-    {
-        perror("shmdt");
-        exit(1);
-    }
-}
-
-void DestroySharedMemorySegment(int shmid)
-{
-    if(shmctl(shmid, IPC_RMID, NULL) == -1)
-    {
-        perror("Unable to destroy shared memory segment");
-        exit(1);
+        if(!steque_isempty(_segmentQueue))
+        {
+            pthread_mutex_lock(&_segmentQueueLock);
+            if(!steque_isempty(_segmentQueue))
+            {
+                return steque_pop(_segmentQueue);
+            }
+            pthread_mutex_unlock(&_segmentQueueLock);
+        }
     }
 }
 
@@ -138,15 +78,18 @@ typedef struct cache_status_request
 {
     long mtype;
     char Path[256];
-    cache_status_response Response;
+    cache_status CacheStatus;
+    size_t Size;
+//    cache_status_response Response;
+    shm_segment SharedSegment;
 } cache_status_request;
 
-typedef struct cache_status_response
-{
-    long mtype;
-    cache_status Status;
-    size_t Size;
-} cache_status_response;
+//typedef struct cache_status_response
+//{
+//    long mtype;
+//    cache_status Status;
+//    size_t Size;
+//} cache_status_response;
 
 long GetID()
 {
@@ -196,26 +139,24 @@ void CleanupCache()
     }
 }
 
-void CheckFileInCache(cache_status_request *request)
+void CleanupQueue()
 {
-    // Calculates the actual message size being sent to the queue
-    int size = sizeof(cache_status_request) - sizeof(long);
-    if (msgsnd(_requestQueueId, request, size, 0) == -1)
-    {
-        perror("Unable to properly send request to cache\n");
-    }
+    steque_destroy(_segmentQueue);
+    free(_segmentQueue);
+    printf("Segment queue cleaned successfully\n");
 }
 
-void RetreiveCacheStatus(cache_status_request *request)
+cache_status RetreiveCacheStatus(cache_status_request *request)
 {
     int retryCounter = 0;
-    int maxRetries = 10;
-    size_t size = sizeof(cache_status_response) - sizeof(long);
+    int maxRetries = 5;
 
+    size_t size = sizeof(cache_status_response) - sizeof(long);
     while(request->Response == NULL && retryCounter < maxRetries)
     {
         if(msgrcv(_responseQueueId, &(request->Response), size, request->mtype, 0) <= 0)
         {
+            sleep(1);
             retryCounter++;
         }
     }
@@ -224,17 +165,31 @@ void RetreiveCacheStatus(cache_status_request *request)
     {
         perror("Unable to retrieve response for request\n");
     }
+
+    return request->CacheStatus;
 }
 
-void SendShareMemoryOpenNotification(shm_open_notification *request)
+cache_status IsInCache(cache_status_request *request)
 {
     // Calculates the actual message size being sent to the queue
-    int size = sizeof(shm_open_notification) - sizeof(long);
+    int size = sizeof(cache_status_request) - sizeof(long);
     if (msgsnd(_requestQueueId, request, size, 0) == -1)
     {
-        perror("Unable to send open message to cache\n");
+        perror("Unable to properly send request to cache\n");
     }
+
+    return RetreiveCacheStatus(request);
 }
+
+//void SendSharedMemoryNotification(shm_open_notification *request)
+//{
+//    // Calculates the actual message size being sent to the queue
+//    int size = sizeof(shm_open_notification) - sizeof(long);
+//    if (msgsnd(_requestQueueId, request, size, 0) == -1)
+//    {
+//        perror("Unable to send open message to cache\n");
+//    }
+//}
 
 void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request)
 {
@@ -250,34 +205,28 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     cache_status_request request;
     request.Path = path;
     request.mtype = GetID();
-
-    CheckFileInCache(&request);
-    RetreiveCacheStatus(&request);
+    request.Notification = GetNotificationFromPool();
 
     // if in cache send send via shared memory else get from server
-    if(request.Response.Status == IN_CACHE)
+    if(IsFileInCache(&request) == IN_CACHE)
     {
         // Initiate file transfer from cache using shared memory
-        int memoryID = CreateSharedMemorySegment();
-
-        shm_open_notification notification;
-        notification.mtype = GetID();
-        notification.SharedMemoryID = memoryID;
-
-        SendShareMemoryOpenNotification(notification);
+//        SendSharedMemoryNotification(notification);
 
         WriteHeaderToClient(ctx, request);
 
-        shm_data_transfer data = AttachToSharedMemorySegment(memoryID);
+        shm_data_transfer sharedContainer = AttachToSharedMemorySegment(request.SharedSegment->SharedMemoryID);
 
         do
         {
-            sem_wait(notification->SharedSemaphore);
-            WriteBytesToClient(data);
+            // This decriments the semaphore and cache will
+            // increase once it sees that semaphore is zero
+            sem_wait(request.SharedSegment->SharedSemaphore);
+            WriteBytesToClient(sharedContainer);
         }
-        while(data.Status != TRANSFER_COMPLETE)
+        while(sharedContainer.Status != TRANSFER_COMPLETE)
 
-        DetachFromSharedMemorySegment(data);
+        DetachFromSharedMemorySegment(sharedContainer);
     }
     else
     {

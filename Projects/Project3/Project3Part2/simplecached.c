@@ -65,12 +65,6 @@ typedef enum cache_status
     NOT_IN_CACHE
 }
 
-typedef enum shm_response_status
-{
-    DATA_TRANSFER,
-    TRANSFER_COMPLETE
-}
-
 typedef struct cache_status_request
 {
     long mtype;
@@ -84,13 +78,6 @@ typedef struct cache_status_response
     cache_status Status;
     size_t Size;
 } cache_status_response;
-
-typedef struct shm_data_transfer
-{
-    long mtype;
-    char Data[SHM_SIZE];
-    shm_response_status Status;
-} shm_data_transfer;
 
 long GetID()
 {

@@ -76,3 +76,40 @@
 	<errno.h>
 	"gfserver.h"
 
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_curl.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/gfserver.h
+	<pthread.h>
+	"steque.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.h
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_file.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/stat.h>
+	<string.h>
+	<unistd.h>
+	<fcntl.h>
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.c
+	<stdlib.h>
+	<stdio.h>
+	"steque.h"
+
