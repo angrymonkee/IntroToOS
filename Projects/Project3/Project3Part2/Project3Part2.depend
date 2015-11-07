@@ -113,3 +113,42 @@
 	<stdio.h>
 	"steque.h"
 
+1446920070 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	<sys/ipc.h>
+	<sys/msg.h>
+	<sys/shm.h>
+	<semaphore.h>
+	"gfserver.h"
+	"shm_channel.h"
+
+1446921888 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
+	<semaphore.h>
+
+1446919914 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
+	<stdlib.h>
+	<sys/ipc.h>
+	<sys/msg.h>
+	<sys/shm.h>
+	"shm_channel.h"
+
+1446921972 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	<unistd.h>
+	<string.h>
+	<getopt.h>
+	<pthread.h>
+	<sys/ipc.h>
+	"shm_channel.h"
+	"simplecache.h"
+	"steque.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.h
+

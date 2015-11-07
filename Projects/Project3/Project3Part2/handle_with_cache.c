@@ -18,8 +18,15 @@
 //#define SHM_DATA_TRANSFER_MTYPE 4
 
 /* =================== Shared memory segment setup and management =================== */
-pthread_mutex_t _segmentQueueLock;
+
+// Stores the memory segment pointers and sema fore to be used for communicating
+// with the cache.
 steque_t* _segmentQueue;
+
+// segmentQueueLock - controls access to the shared memory segment queue
+pthread_mutex_t _segmentQueueLock;
+// socketLock - controls access to writing to the socket back to the client
+pthread_mutex_t _socketLock;
 
 void InitializeSharedSegmentPool(int nsegments)
 {
@@ -68,21 +75,6 @@ int _requestQueueId;
 int _responseQueueId;
 static long _idCounter;
 
-typedef enum cache_status
-{
-    IN_CACHE,
-    NOT_IN_CACHE
-}
-
-typedef struct cache_status_request
-{
-    long mtype;
-    char Path[256];
-    cache_status CacheStatus;
-    size_t Size;
-//    cache_status_response Response;
-    shm_segment SharedSegment;
-} cache_status_request;
 
 //typedef struct cache_status_response
 //{
@@ -130,17 +122,38 @@ void InitializeCache()
     }
 }
 
-void CleanupCache()
+void CleanupMessageQueues()
 {
-    if (msgctl(_queueId, IPC_RMID, NULL) == -1)
+    if (msgctl(_requestQueueId, IPC_RMID, NULL) == -1)
     {
-        perror("Unable to destroy message queue. Need to destroy manually.\n");
+        perror("Unable to destroy request queue. Need to destroy manually.\n");
+        exit(1);
+    }
+
+    if (msgctl(_responseQueueId, IPC_RMID, NULL) == -1)
+    {
+        perror("Unable to destroy response queue. Need to destroy manually.\n");
         exit(1);
     }
 }
 
 void CleanupQueue()
 {
+    // Destroy all semaphores
+    while(!steque_isempty(_segmentQueue))
+    {
+        shm_segment* segment = steque_pop(_segmentQueue);
+
+        // Destroy semaphores
+        sem_destroy(segment->SharedSemaphore);
+
+        // Destroy shared memory segment
+        DestroySharedMemorySegment(segment->SharedMemoryID);
+
+        // Destroy segment struct
+        free(segment);
+    }
+
     steque_destroy(_segmentQueue);
     free(_segmentQueue);
     printf("Segment queue cleaned successfully\n");
@@ -151,19 +164,16 @@ cache_status RetreiveCacheStatus(cache_status_request *request)
     int retryCounter = 0;
     int maxRetries = 5;
 
-    size_t size = sizeof(cache_status_response) - sizeof(long);
-    while(request->Response == NULL && retryCounter < maxRetries)
+    size_t size = sizeof(cache_status_request) - sizeof(long);
+    while(msgrcv(_responseQueueId, &(request), size, request->mtype, 0) <= 0 && retryCounter < maxRetries)
     {
-        if(msgrcv(_responseQueueId, &(request->Response), size, request->mtype, 0) <= 0)
-        {
-            sleep(1);
-            retryCounter++;
-        }
+        sleep(1);
+        retryCounter++;
     }
 
-    if(request->Response == NULL)
+    if(retryCounter >= maxRetries)
     {
-        perror("Unable to retrieve response for request\n");
+        printf("Exceeded max retries waiting for response on request [Path:%s]\n", request->Path);
     }
 
     return request->CacheStatus;
@@ -196,16 +206,16 @@ void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request)
     printf("Sending GF_OK header...\n");
 
     pthread_mutex_lock(&_socketLock);
-    gfs_sendheader(ctx, GF_OK, request->Response.Size);
+    gfs_sendheader(ctx, GF_OK, request->Size);
     pthread_mutex_unlock(&_socketLock);
 }
 
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
     cache_status_request request;
-    request.Path = path;
     request.mtype = GetID();
-    request.Notification = GetNotificationFromPool();
+    request.Path = path;
+    request.SharedSegment = GetSegmentFromPool();
 
     // if in cache send send via shared memory else get from server
     if(IsFileInCache(&request) == IN_CACHE)
@@ -213,9 +223,10 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         // Initiate file transfer from cache using shared memory
 //        SendSharedMemoryNotification(notification);
 
-        WriteHeaderToClient(ctx, request);
+        WriteHeaderToClient(ctx, &request);
 
-        shm_data_transfer sharedContainer = AttachToSharedMemorySegment(request.SharedSegment->SharedMemoryID);
+        shm_data_transfer* sharedContainer;
+        sharedContainer = AttachToSharedMemorySegment(request.SharedSegment->SharedMemoryID);
 
         do
         {
@@ -224,7 +235,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
             sem_wait(request.SharedSegment->SharedSemaphore);
             WriteBytesToClient(sharedContainer);
         }
-        while(sharedContainer.Status != TRANSFER_COMPLETE)
+        while(sharedContainer->Status != TRANSFER_COMPLETE);
 
         DetachFromSharedMemorySegment(sharedContainer);
     }
@@ -242,9 +253,9 @@ void WriteBytesToClient(gfserver_t *ctx, cache_status_request *request, shm_data
     size_t chunkSize = SHM_SIZE;
 
     pthread_mutex_lock(&_socketLock);
-    while(bytes_transferred < request->Response.Size)
+    while(bytes_transferred < request->Size)
     {
-        size_t bytesLeft = request->Response.Size - bytes_transferred;
+        size_t bytesLeft = request->Size - bytes_transferred;
         if(bytesLeft < chunkSize)
         {
             chunkSize = bytesLeft;
@@ -253,19 +264,20 @@ void WriteBytesToClient(gfserver_t *ctx, cache_status_request *request, shm_data
         size_t sentBytes = gfs_send(ctx, &(data.Data[bytes_transferred]), chunkSize);
         if (sentBytes == -1)
         {
-            printf("Write error, %zd, %zu, %zu\n", sentBytes, bytes_transferred, request->Response.Size);
+            printf("Write error, %zd, %zu, %zu\n", sentBytes, bytes_transferred, request->Size);
             pthread_mutex_unlock(&_socketLock);
             exit(-1);
         }
         else
         {
             bytes_transferred += sentBytes;
-            printf("Sent %ld, %ld of %ld bytes\n", sentBytes, bytes_transferred, request->Response.Size);
+            printf("Sent %ld, %ld of %ld bytes\n", sentBytes, bytes_transferred, request->Size);
         }
     }
     pthread_mutex_unlock(&_socketLock);
 
     // ???????????
-    free(request.Data);
+    free(request->Path);
+    free(request->SharedSegment);
 }
 

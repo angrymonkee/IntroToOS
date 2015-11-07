@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   /*Setting options*/
   gfserver_setopt(&gfs, GFS_PORT, port);
   gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
-  gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_cache;
+  gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_cache);
   printf("server set to %s\n", server);
   for(i = 0; i < nworkerthreads; i++)
     gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);

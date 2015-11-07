@@ -5,9 +5,11 @@
 #include <string.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <sys/ipc.h>
 
 #include "shm_channel.h"
 #include "simplecache.h"
+#include "steque.h"
 
 #define MAX_CACHE_REQUEST_LEN 256
 
@@ -59,25 +61,6 @@ int _responseQueueId;
 static long _idCounter;
 int _monitorIncomingRequests = 1;
 
-typedef enum cache_status
-{
-    IN_CACHE,
-    NOT_IN_CACHE
-}
-
-typedef struct cache_status_request
-{
-    long mtype;
-    char Path[256];
-    cache_status_response Response;
-} cache_status_request;
-
-typedef struct cache_status_response
-{
-    long mtype;
-    cache_status Status;
-    size_t Size;
-} cache_status_response;
 
 long GetID()
 {
@@ -118,11 +101,17 @@ void InitializeCache()
     }
 }
 
-void CleanupCache()
+void CleanupMessageQueues()
 {
-    if (msgctl(_queueId, IPC_RMID, NULL) == -1)
+    if (msgctl(_requestQueueId, IPC_RMID, NULL) == -1)
     {
-        perror("Unable to destroy message queue. Need to destroy manually.\n");
+        perror("Unable to destroy request queue. Need to destroy manually.\n");
+        exit(1);
+    }
+
+    if (msgctl(_responseQueueId, IPC_RMID, NULL) == -1)
+    {
+        perror("Unable to destroy response queue. Need to destroy manually.\n");
         exit(1);
     }
 }
@@ -132,27 +121,22 @@ void HandleIncomingRequests()
     while(_monitorIncomingRequests)
     {
         cache_status_request *request;
-        shm_open_notification *notification;
-        if(msgrcv(_requestQueueId, &request, sizeof(cache_status_request) - sizeof(long), CACHE_STATUS_REQUEST_MTYPE, 0) > 0)
+        if(msgrcv(_requestQueueId, &request, sizeof(cache_status_request) - sizeof(long), 0, 0) > 0)
         {
-            request->Response.mtype = CACHE_STATUS_RESPONSE_MTYPE;
-
             if(simplecache_get(request->Path) > 0)
             {
-                request->Response.Status = cache_status.IN_CACHE;
-                request->Response.Size = documentSize;
+                request->CacheStatus = IN_CACHE;
+                request->Size = 0;// documentSize;
+
+                steque_enqueue(_queue, request);
             }
             else
             {
-                request->Response.Status = cache_status.NOT_IN_CACHE;
-                request->Response.Size = 0;
+                request->CacheStatus = NOT_IN_CACHE;
+                request->Size = 0;
             }
 
             SendCacheStatusResponse(request);
-        }
-        else if(msgrcv(_requestQueueId, &notification, sizeof(shm_open_notification) - sizeof(long), SHM_OPEN_NOTIFICATION_MTYPE, 0) > 0)
-        {
-            steque_enqueue(_queue, &notification);
         }
     }
 }
@@ -166,15 +150,15 @@ void SendCacheStatusResponse(cache_status_request *request)
     }
 }
 
-void SendShareMemoryOpenNotification(shm_open_notification *notification)
-{
-    // Calculates the actual message size being sent to the queue
-    int size = sizeof(shm_open_notification) - sizeof(long);
-    if (msgsnd(_responseQueueId, notification, size, 0) == -1)
-    {
-        perror("Unable to send open notifications\n");
-    }
-}
+//void SendShareMemoryOpenNotification(shm_open_notification *notification)
+//{
+//    // Calculates the actual message size being sent to the queue
+//    int size = sizeof(shm_open_notification) - sizeof(long);
+//    if (msgsnd(_responseQueueId, notification, size, 0) == -1)
+//    {
+//        perror("Unable to send open notifications\n");
+//    }
+//}
 
 void InitializeThreadConstructs()
 {
@@ -196,6 +180,70 @@ void InitializeThreadConstructs()
     }
 }
 
+void ProcessCacheTransfers(int *threadID)
+{
+    printf("Processing cache transfers\n");
+
+    while(_threadsAlive == 1)
+    {
+        if(steque_isempty(_queue))
+        {
+            continue;
+        }
+
+        // Dequeue
+        pthread_mutex_lock(&_queueLock);
+        cache_status_request* request = steque_pop(_queue);
+        pthread_mutex_unlock(&_queueLock);
+        printf("Popped request from queue on thread: %d\n", *threadID);
+
+        if(request != NULL)
+        {
+            ssize_t file_len, bytes_transferred;
+            ssize_t read_len, write_len;
+            char buffer[SHM_SIZE];
+
+            int descriptor = simplecache_get(request->Path);
+
+            /* Calculating the file size */
+            file_len = lseek(descriptor, 0, SEEK_END);
+            printf("File size %ld calculated\n", file_len);
+
+            pthread_mutex_lock(&_fileLock);
+
+            /* Sending the file contents chunk by chunk. */
+            bytes_transferred = 0;
+            while(bytes_transferred < file_len)
+            {
+                read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
+                if (read_len <= 0)
+                {
+                    fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
+                    exit(-1);
+                }
+
+                bytes_transferred += read_len;
+
+                shm_data_transfer *sharedContainer = AttachToSharedMemorySegment(request->SharedSegment->SharedMemoryID);
+                strncpy(sharedContainer->Data, buffer, SHM_SIZE);
+
+                if(bytes_transferred < file_len)
+                {
+                    sharedContainer->Status = DATA_TRANSFER;
+                }
+                else
+                {
+                    sharedContainer->Status = TRANSFER_COMPLETE;
+                }
+            }
+
+            pthread_mutex_unlock(&_fileLock);
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
 void InitializeThreadPool(int numberOfThreads)
 {
     _numberOfThreads = numberOfThreads;
@@ -206,7 +254,7 @@ void InitializeThreadPool(int numberOfThreads)
     {
         printf("Creating thread: %d\n", i);
 
-        err = pthread_create(&(_tid[i]), NULL, (void*)&ProcessRequests, &(_tid[i]));
+        err = pthread_create(&(_tid[i]), NULL, (void*)&ProcessCacheTransfers, &(_tid[i]));
         if (err != 0)
         {
             printf("Can't create thread :[%s]\n", strerror(err));
@@ -225,72 +273,6 @@ void CleanupThreads()
     printf("Thread cleaned successfully\n");
 }
 
-void ProcessCacheTransfers(int *threadID)
-{
-    printf("Processing cache transfers\n");
-
-    while(_threadsAlive == 1)
-    {
-        if(steque_isempty(_queue))
-        {
-            continue;
-        }
-
-        // Dequeue
-        pthread_mutex_lock(&_queueLock);
-        shm_open_notification* notification = steque_pop(_queue);
-        pthread_mutex_unlock(&_queueLock);
-        printf("Popped notification from queue on thread: %d\n", *threadID);
-
-        if(notification != NULL)
-        {
-            ssize_t file_len, bytes_transferred;
-            ssize_t read_len, write_len;
-            char buffer[SHM_SIZE];
-
-            shm_data_transfer transfer;
-
-            int descriptor = simplecache_get(notification->Path);
-
-            /* Calculating the file size */
-            file_len = lseek(descriptor, 0, SEEK_END);
-            printf("File size %ld calculated\n", file_len);
-
-            pthread_mutex_lock(&_fileLock);
-
-            /* Sending the file contents chunk by chunk. */
-            bytes_transferred = 0;
-            while(bytes_transferred < file_len)
-            {
-                read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
-                if (read_len <= 0)
-                {
-                    fprintf(stderr, "handle_with_file read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-                    gfs_abort(ctx->Context);
-                    exit(-1);
-                }
-
-                bytes_transferred += read_len;
-
-                shm_data_transfer *data = AttachToSharedMemorySegment(notification->SharedMemoryID);
-                strcpy(data->Data, buffer, SHM_SIZE);
-
-                if(bytes_transferred < file_len)
-                {
-                    data->Status = shm_response_status.DATA_TRANSFER;
-                }
-                else
-                {
-                    data->Status = shm_response_status.TRANSFER_COMPLETE;
-                }
-            }
-
-            pthread_mutex_unlock(&_fileLock);
-        }
-    }
-
-    pthread_exit(NULL);
-}
 
 
 

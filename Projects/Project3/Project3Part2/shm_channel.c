@@ -1,3 +1,8 @@
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <sys/shm.h>
+
 #include "shm_channel.h"
 
 int CreateSharedMemorySegment()
@@ -20,34 +25,17 @@ int CreateSharedMemorySegment()
     }
 }
 
-sem_t *CreateSemaphore()
+sem_t CreateSemaphore()
 {
     sem_t semaphore;
     int semVal = sem_init(&semaphore ,1 ,1);
     if ( semVal != 0)
     {
-        perror ( " Couldn ’t initialize . " ) ;
+        perror(" Couldn ’t initialize semaphore.") ;
         exit (3) ;
     }
 
-    semVal = sem_wait(&semaphore);
-
-    printf("Did trywait. Returned %d >\n", semVal);
-
-    getchar();
-
-    semVal = sem_trywait (& sp );
-
-    printf("Did trywait. Returned %d >\n", semVal);
-
-    getchar ();
-
-    semVal = sem_trywait (& sp ) ;
-
-    printf("Did trywait. Returned %d >\n", semVal);
-    getchar ();
-
-    sem_destroy (&semaphore);
+    return semaphore;
 }
 
 shm_data_transfer *AttachToSharedMemorySegment(int shmid)
@@ -63,12 +51,12 @@ shm_data_transfer *AttachToSharedMemorySegment(int shmid)
     return data;
 }
 
-void DetachFromSharedMemorySegment(void *data)
+void DetachFromSharedMemorySegment(shm_data_transfer *data)
 {
     /* detach from the segment: */
     if (shmdt(data) == -1)
     {
-        perror("shmdt");
+        perror("Error detaching from shared memory segment.");
         exit(1);
     }
 }
