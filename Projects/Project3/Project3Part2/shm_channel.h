@@ -5,7 +5,7 @@
 typedef struct shm_segment
 {
     int SharedMemoryID;
-    sem_t *SharedSemaphore;
+    sem_t SharedSemaphore;
 }shm_segment;
 
 typedef enum shm_response_status
@@ -30,16 +30,19 @@ typedef enum cache_status
 typedef struct cache_status_request
 {
     long mtype;
-    char* Path;
+    char Path[255];
     cache_status CacheStatus;
     size_t Size;
-    shm_segment* SharedSegment;
+    shm_segment SharedSegment;
 } cache_status_request;
-//
-//typedef struct cache_status_response
-//{
-//    long mtype;
-//    cache_status Status;
-//    size_t Size;
-//} cache_status_response;
-//
+
+
+int CreateSharedMemorySegment();
+
+sem_t CreateSemaphore();
+
+shm_data_transfer *AttachToSharedMemorySegment(int shmid);
+
+void DetachFromSharedMemorySegment(shm_data_transfer *data);
+
+void DestroySharedMemorySegment(int shmid);

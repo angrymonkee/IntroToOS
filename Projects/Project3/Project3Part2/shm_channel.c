@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
@@ -7,26 +8,31 @@
 
 int CreateSharedMemorySegment()
 {
-    key_t key;
-    int shmid;
+    printf("In CreateSharedMemorySegment\n");
 
-    /* make the key: */
-    if ((key = ftok("project3SHM", 'A')) == -1)
+    key_t key;
+    int shmid = 0;
+
+    if ((key = ftok("shm_channel.c", 'A')) == -1)
     {
         perror("ftok");
         exit(1);
     }
 
-    /* connect to (and possibly create) the segment: */
-    if ((shmid = shmget(key, SHM_SIZE, 0644 | IPC_CREAT)) == -1)
+    if ((shmid = shmget(key, SHM_SIZE, 0666 | IPC_CREAT)) == -1)
     {
         perror("shmget");
         exit(1);
     }
+
+    printf("SHMID: %d\n", shmid);
+    return shmid;
 }
 
 sem_t CreateSemaphore()
 {
+    printf("In CreateSemaphore\n");
+
     sem_t semaphore;
     int semVal = sem_init(&semaphore ,1 ,1);
     if ( semVal != 0)
@@ -40,9 +46,12 @@ sem_t CreateSemaphore()
 
 shm_data_transfer *AttachToSharedMemorySegment(int shmid)
 {
+    printf("Attaching to shared memory segment...\n");
+
     /* attach to the segment to get a pointer to it: */
-    shm_data_transfer *data = (shm_data_transfer *)shmat(shmid, (void *)0, 0);
-    if (data == (char *)(-1))
+    printf("Shmid: %d\n", shmid);
+    shm_data_transfer *data = shmat(shmid, (void *)0, 0);
+    if (data == (shm_data_transfer *)(-1))
     {
         perror("shmat");
         exit(1);
@@ -53,6 +62,8 @@ shm_data_transfer *AttachToSharedMemorySegment(int shmid)
 
 void DetachFromSharedMemorySegment(shm_data_transfer *data)
 {
+    printf("In DetachFromSharedMemorySegment\n");
+
     /* detach from the segment: */
     if (shmdt(data) == -1)
     {
@@ -63,6 +74,8 @@ void DetachFromSharedMemorySegment(shm_data_transfer *data)
 
 void DestroySharedMemorySegment(int shmid)
 {
+    printf("In DestroySharedMemorySegment\n");
+
     if(shmctl(shmid, IPC_RMID, NULL) == -1)
     {
         perror("Unable to destroy shared memory segment");

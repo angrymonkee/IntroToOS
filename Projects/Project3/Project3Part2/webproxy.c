@@ -7,21 +7,25 @@
 #include <signal.h>
 
 #include "gfserver.h"
-                                                                \
-#define USAGE                                                                 \
-"usage:\n"                                                                    \
-"  webproxy [options]\n"                                                     \
-"options:\n"                                                                  \
-"  -p [listen_port]    Listen port (Default: 8888)\n"                         \
-"  -t [thread_count]   Num worker threads (Default: 1, Range: 1-1000)\n"      \
-"  -s [server]         The server to connect to (Default: Udacity S3 instance)"\
-"  -h                  Show this help message\n"                              \
-"special options:\n"                                                          \
+
+#define USAGE                                                                    \
+"usage:\n"                                                                       \
+"  webproxy [options]\n"                                                         \
+"options:\n"                                                                     \
+"  -n [segment_count]  Number of segments to use in communication with cache\n"  \
+"  -z [segment_size]   Size (in bytes) of the segments\n"                        \
+"  -p [listen_port]    Listen port (Default: 8888)\n"                            \
+"  -t [thread_count]   Num worker threads (Default: 1, Range: 1-1000)\n"         \
+"  -s [server]         The server to connect to (Default: Udacity S3 instance)\n"\
+"  -h                  Show this help message\n"                                 \
+"special options:\n"                                                             \
 "  -d [drop_factor]    Drop connects if f*t pending requests (Default: 5).\n"
 
 
 /* OPTIONS DESCRIPTOR ====================================================== */
 static struct option gLongOptions[] = {
+  {"segment-count", required_argument,      NULL,           'n'},
+  {"segment-size",  required_argument,      NULL,           'z'},
   {"port",          required_argument,      NULL,           'p'},
   {"thread-count",  required_argument,      NULL,           't'},
   {"server",        required_argument,      NULL,           's'},
@@ -29,39 +33,59 @@ static struct option gLongOptions[] = {
   {NULL,            0,                      NULL,             0}
 };
 
+extern void InitializeSharedSegmentPool(int nsegments);
+extern void InitializeSynchronizationQueues();
+
+extern void CleanupSharedSegmentPool();
+extern void CleanupSynchronizationQueues();
+
 extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
-extern void InitializeCache();
-extern void CleanupCache();
 
 static gfserver_t gfs;
 
-static void _sig_handler(int signo){
-  if (signo == SIGINT || signo == SIGTERM){
+static void _sig_handler(int signo)
+{
+  if (signo == SIGINT || signo == SIGTERM)
+  {
     gfserver_stop(&gfs);
     exit(signo);
   }
 }
 
 /* Main ========================================================= */
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
   int i, option_char = 0;
   unsigned short port = 8888;
   unsigned short nworkerthreads = 1;
+  unsigned short nsegments = 1;
+  unsigned short segmentSize = 1024;
+
   char *server = "http://s3.amazonaws.com/content.udacity-data.com";
 
-  if (signal(SIGINT, _sig_handler) == SIG_ERR){
+  if (signal(SIGINT, _sig_handler) == SIG_ERR)
+  {
     fprintf(stderr,"Can't catch SIGINT...exiting.\n");
     exit(EXIT_FAILURE);
   }
 
-  if (signal(SIGTERM, _sig_handler) == SIG_ERR){
+  if (signal(SIGTERM, _sig_handler) == SIG_ERR)
+  {
     fprintf(stderr,"Can't catch SIGTERM...exiting.\n");
     exit(EXIT_FAILURE);
   }
 
   // Parse and set command line arguments
-  while ((option_char = getopt_long(argc, argv, "p:t:s:h", gLongOptions, NULL)) != -1) {
-    switch (option_char) {
+  while ((option_char = getopt_long(argc, argv, "n:z:p:t:s:h", gLongOptions, NULL)) != -1)
+  {
+    switch (option_char)
+    {
+      case 'n': // segment-count
+        nsegments = atoi(optarg);
+        break;
+      case 'z': // segnment-size
+        segmentSize = atoi(optarg);
+        break;
       case 'p': // listen-port
         port = atoi(optarg);
         break;
@@ -83,7 +107,8 @@ int main(int argc, char **argv) {
   }
 
   /* SHM initialization...*/
-  InitializeCache();
+  InitializeSharedSegmentPool(nsegments);
+  InitializeSynchronizationQueues();
 
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
@@ -99,7 +124,8 @@ int main(int argc, char **argv) {
   /*Loops forever*/
   gfserver_serve(&gfs);
 
-  CleanupCache();
+  CleanupSynchronizationQueues();
+  CleanupSharedSegmentPool();
 
   return 0;
 }

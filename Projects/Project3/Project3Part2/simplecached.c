@@ -6,17 +6,16 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <sys/ipc.h>
+#include <sys/msg.h>
+#include <sys/shm.h>
+#include <semaphore.h>
 
 #include "shm_channel.h"
 #include "simplecache.h"
 #include "steque.h"
 
 #define MAX_CACHE_REQUEST_LEN 256
-
-#define CACHE_STATUS_REQUEST_MTYPE 1
-#define CACHE_STATUS_RESPONSE_MTYPE 2
-#define SHM_OPEN_NOTIFICATION_MTYPE 3
-#define SHM_DATA_TRANSFER_MTYPE 4
+#define FTOK_KEY_FILE "handle_with_cache.c"
 
 static void _sig_handler(int signo){
 	if (signo == SIGINT || signo == SIGTERM){
@@ -58,22 +57,19 @@ int _threadsAlive = 1;
 
 int _requestQueueId;
 int _responseQueueId;
-static long _idCounter;
+//static long _idCounter;
 int _monitorIncomingRequests = 1;
 
+void ProcessCacheTransfers(int *threadID);
 
-long GetID()
+void InitializeMessageQueues()
 {
-    _idCounter++;
-    return _idCounter;
-}
+    printf("Initializing message queues...\n");
 
-void InitializeCache()
-{
     // Need to create a message queue to handle requests
     // to the cache.
     key_t requestKey;
-    if ((requestKey = ftok("project3Request", 'A')) == -1)
+    if ((requestKey = ftok(FTOK_KEY_FILE, 'A')) == -1)
     {
         perror("Unable to create request message queue key\n");
         exit(1);
@@ -88,7 +84,7 @@ void InitializeCache()
     // Need to create a message queue to handle responses
     // from the cache.
     key_t responseKey;
-    if ((responseKey = ftok("project3Response", 'A')) == -1)
+    if ((responseKey = ftok(FTOK_KEY_FILE, 'B')) == -1)
     {
         perror("Unable to create response message queue key\n");
         exit(1);
@@ -103,6 +99,8 @@ void InitializeCache()
 
 void CleanupMessageQueues()
 {
+    printf("Cleaning up message queues...\n");
+
     if (msgctl(_requestQueueId, IPC_RMID, NULL) == -1)
     {
         perror("Unable to destroy request queue. Need to destroy manually.\n");
@@ -116,33 +114,10 @@ void CleanupMessageQueues()
     }
 }
 
-void HandleIncomingRequests()
-{
-    while(_monitorIncomingRequests)
-    {
-        cache_status_request *request;
-        if(msgrcv(_requestQueueId, &request, sizeof(cache_status_request) - sizeof(long), 0, 0) > 0)
-        {
-            if(simplecache_get(request->Path) > 0)
-            {
-                request->CacheStatus = IN_CACHE;
-                request->Size = 0;// documentSize;
-
-                steque_enqueue(_queue, request);
-            }
-            else
-            {
-                request->CacheStatus = NOT_IN_CACHE;
-                request->Size = 0;
-            }
-
-            SendCacheStatusResponse(request);
-        }
-    }
-}
-
 void SendCacheStatusResponse(cache_status_request *request)
 {
+    printf("Sending cache response...\n");
+
     int size = sizeof(cache_status_request) - sizeof(long);
     if (msgsnd(_responseQueueId, request, size, 0) == -1)
     {
@@ -150,19 +125,46 @@ void SendCacheStatusResponse(cache_status_request *request)
     }
 }
 
-//void SendShareMemoryOpenNotification(shm_open_notification *notification)
-//{
-//    // Calculates the actual message size being sent to the queue
-//    int size = sizeof(shm_open_notification) - sizeof(long);
-//    if (msgsnd(_responseQueueId, notification, size, 0) == -1)
-//    {
-//        perror("Unable to send open notifications\n");
-//    }
-//}
+void HandleIncomingRequests()
+{
+    printf("Monitoring for requests...\n");
+
+    while(_monitorIncomingRequests)
+    {
+        cache_status_request *request = malloc(sizeof(cache_status_request));
+        ssize_t msgSize = msgrcv(_requestQueueId, request, sizeof(cache_status_request), 0, 0);
+        printf("Message size %lu", msgSize);
+        if(msgSize > 0)
+        {
+            printf("Request recieved for [Path: %s]\n", request->Path);
+
+            if(simplecache_get(request->Path) > 0)
+            {
+                printf("Exists in cache\n");
+
+                request->CacheStatus = IN_CACHE;
+                request->Size = 0;// documentSize;
+
+                steque_enqueue(_queue, request);
+            }
+            else
+            {
+                printf("Does not exist in cache\n");
+                request->CacheStatus = NOT_IN_CACHE;
+                request->Size = 0;
+            }
+
+            SendCacheStatusResponse(request);
+        }
+    }
+
+    printf("Stop handling requests...\n");
+}
 
 void InitializeThreadConstructs()
 {
-    printf("Initializing thread constructs\n");
+    printf("Initializing thread constructs...\n");
+
     _queue = malloc(sizeof(steque_t));
     steque_init(_queue);
     printf("Queue initialized\n");
@@ -180,72 +182,10 @@ void InitializeThreadConstructs()
     }
 }
 
-void ProcessCacheTransfers(int *threadID)
-{
-    printf("Processing cache transfers\n");
-
-    while(_threadsAlive == 1)
-    {
-        if(steque_isempty(_queue))
-        {
-            continue;
-        }
-
-        // Dequeue
-        pthread_mutex_lock(&_queueLock);
-        cache_status_request* request = steque_pop(_queue);
-        pthread_mutex_unlock(&_queueLock);
-        printf("Popped request from queue on thread: %d\n", *threadID);
-
-        if(request != NULL)
-        {
-            ssize_t file_len, bytes_transferred;
-            ssize_t read_len, write_len;
-            char buffer[SHM_SIZE];
-
-            int descriptor = simplecache_get(request->Path);
-
-            /* Calculating the file size */
-            file_len = lseek(descriptor, 0, SEEK_END);
-            printf("File size %ld calculated\n", file_len);
-
-            pthread_mutex_lock(&_fileLock);
-
-            /* Sending the file contents chunk by chunk. */
-            bytes_transferred = 0;
-            while(bytes_transferred < file_len)
-            {
-                read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
-                if (read_len <= 0)
-                {
-                    fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-                    exit(-1);
-                }
-
-                bytes_transferred += read_len;
-
-                shm_data_transfer *sharedContainer = AttachToSharedMemorySegment(request->SharedSegment->SharedMemoryID);
-                strncpy(sharedContainer->Data, buffer, SHM_SIZE);
-
-                if(bytes_transferred < file_len)
-                {
-                    sharedContainer->Status = DATA_TRANSFER;
-                }
-                else
-                {
-                    sharedContainer->Status = TRANSFER_COMPLETE;
-                }
-            }
-
-            pthread_mutex_unlock(&_fileLock);
-        }
-    }
-
-    pthread_exit(NULL);
-}
-
 void InitializeThreadPool(int numberOfThreads)
 {
+    printf("Initializing thread pool...\n");
+
     _numberOfThreads = numberOfThreads;
 
     int err = 0;
@@ -266,33 +206,100 @@ void InitializeThreadPool(int numberOfThreads)
 
 void CleanupThreads()
 {
-    printf("Cleaning thread\n");
+    printf("Cleaning thread...\n");
+
     _threadsAlive = 0;
     steque_destroy(_queue);
     free(_queue);
     printf("Thread cleaned successfully\n");
 }
 
+void ProcessCacheTransfers(int *threadID)
+{
+    printf("Processing cache transfers...\n");
 
+    while(_threadsAlive == 1)
+    {
+        if(steque_isempty(_queue))
+        {
+            continue;
+        }
 
+        printf("New cache transfer found...\n");
 
+        // Dequeue
+        pthread_mutex_lock(&_queueLock);
+        cache_status_request* request = steque_pop(_queue);
+        pthread_mutex_unlock(&_queueLock);
+        printf("Popped request from queue on thread: %d\n", *threadID);
 
+        if(request != NULL)
+        {
+            ssize_t file_len;
+            ssize_t bytes_transferred;
+            ssize_t read_len;
+            char buffer[SHM_SIZE];
 
+            int descriptor = simplecache_get(request->Path);
 
+            /* Calculating the file size */
+            file_len = lseek(descriptor, 0, SEEK_END);
+            printf("File size %ld calculated\n", file_len);
 
+            pthread_mutex_lock(&_fileLock);
 
+            /* Sending the file contents chunk by chunk. */
+            int semaphoreVal = 0;
+            bytes_transferred = 0;
+            while(bytes_transferred < file_len)
+            {
+                // Check to see if shared semaphore has been used by proxy
+                sem_getvalue(&(request->SharedSegment.SharedSemaphore), &semaphoreVal);
 
+                if(semaphoreVal == 0)
+                {
+                    read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
+                    if (read_len <= 0)
+                    {
+                        fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
+                        exit(-1);
+                    }
 
+                    bytes_transferred += read_len;
 
-int main(int argc, char **argv) {
+                    shm_data_transfer* sharedContainer = AttachToSharedMemorySegment(request->SharedSegment.SharedMemoryID);
+                    strncpy(sharedContainer->Data, buffer, SHM_SIZE);
+
+                    if(bytes_transferred < file_len)
+                    {
+                        sharedContainer->Status = DATA_TRANSFER;
+                    }
+                    else
+                    {
+                        sharedContainer->Status = TRANSFER_COMPLETE;
+                    }
+
+                    sem_post(&(request->SharedSegment.SharedSemaphore));
+                }
+            }
+
+            pthread_mutex_unlock(&_fileLock);
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
+int main(int argc, char **argv)
+{
 	int nthreads = 1;
-	int i;
 	char *cachedir = "locals.txt";
 	char option_char;
 
-
-	while ((option_char = getopt_long(argc, argv, "t:c:h", gLongOptions, NULL)) != -1) {
-		switch (option_char) {
+	while ((option_char = getopt_long(argc, argv, "t:c:h", gLongOptions, NULL)) != -1)
+	{
+		switch (option_char)
+		{
 			case 't': // thread-count
 				nthreads = atoi(optarg);
 				break;
@@ -309,12 +316,14 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (signal(SIGINT, _sig_handler) == SIG_ERR){
+	if (signal(SIGINT, _sig_handler) == SIG_ERR)
+	{
 		fprintf(stderr,"Can't catch SIGINT...exiting.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	if (signal(SIGTERM, _sig_handler) == SIG_ERR){
+	if (signal(SIGTERM, _sig_handler) == SIG_ERR)
+	{
 		fprintf(stderr,"Can't catch SIGTERM...exiting.\n");
 		exit(EXIT_FAILURE);
 	}
@@ -322,14 +331,14 @@ int main(int argc, char **argv) {
 	/* Initializing the cache */
 	simplecache_init(cachedir);
 
-	InitializeCache();
 	InitializeThreadConstructs();
 	InitializeThreadPool(nthreads);
+	InitializeMessageQueues();
 
-    // One thread to service the status checks
-
-	// Create boss-worker thread model to push the cached file contents
+    HandleIncomingRequests();
 
     CleanupThreads();
-	CleanupCache();
+	CleanupMessageQueues();
+
+	return 0;
 }
