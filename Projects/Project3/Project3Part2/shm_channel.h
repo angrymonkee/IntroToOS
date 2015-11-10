@@ -5,12 +5,13 @@
 typedef struct shm_segment
 {
     int SharedMemoryID;
-    sem_t SharedSemaphore;
 }shm_segment;
 
 typedef enum shm_response_status
 {
-    DATA_TRANSFER,
+    TRANSFER_BEGIN,
+    DATA_LOADED,
+    DATA_TRANSFERRED,
     TRANSFER_COMPLETE
 }shm_response_status;
 
@@ -19,6 +20,8 @@ typedef struct shm_data_transfer
     long mtype;
     char Data[SHM_SIZE];
     shm_response_status Status;
+    sem_t SharedSemaphore;
+    size_t Size;
 } shm_data_transfer;
 
 typedef enum cache_status
@@ -32,7 +35,6 @@ typedef struct cache_status_request
     long mtype;
     char Path[255];
     cache_status CacheStatus;
-    size_t Size;
     shm_segment SharedSegment;
 } cache_status_request;
 

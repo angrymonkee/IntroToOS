@@ -14,7 +14,6 @@
 #include "simplecache.h"
 #include "steque.h"
 
-#define MAX_CACHE_REQUEST_LEN 256
 #define FTOK_KEY_FILE "handle_with_cache.c"
 
 static void _sig_handler(int signo){
@@ -141,9 +140,7 @@ void HandleIncomingRequests()
             if(simplecache_get(request->Path) > 0)
             {
                 printf("Exists in cache\n");
-
                 request->CacheStatus = IN_CACHE;
-                request->Size = 0;// documentSize;
 
                 steque_enqueue(_queue, request);
             }
@@ -151,7 +148,6 @@ void HandleIncomingRequests()
             {
                 printf("Does not exist in cache\n");
                 request->CacheStatus = NOT_IN_CACHE;
-                request->Size = 0;
             }
 
             SendCacheStatusResponse(request);
@@ -246,17 +242,17 @@ void ProcessCacheTransfers(int *threadID)
             file_len = lseek(descriptor, 0, SEEK_END);
             printf("File size %ld calculated\n", file_len);
 
+            shm_data_transfer* sharedContainer = AttachToSharedMemorySegment(request->SharedSegment.SharedMemoryID);
+            sharedContainer->Size = file_len;
+            sharedContainer->Status = TRANSFER_BEGIN;
+
             pthread_mutex_lock(&_fileLock);
 
-            /* Sending the file contents chunk by chunk. */
-            int semaphoreVal = 0;
+            // Sending the file contents chunk by chunk
             bytes_transferred = 0;
             while(bytes_transferred < file_len)
             {
-                // Check to see if shared semaphore has been used by proxy
-                sem_getvalue(&(request->SharedSegment.SharedSemaphore), &semaphoreVal);
-
-                if(semaphoreVal == 0)
+                if(sharedContainer->Status == DATA_TRANSFERRED || sharedContainer->Status == TRANSFER_BEGIN)
                 {
                     read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
                     if (read_len <= 0)
@@ -267,19 +263,19 @@ void ProcessCacheTransfers(int *threadID)
 
                     bytes_transferred += read_len;
 
-                    shm_data_transfer* sharedContainer = AttachToSharedMemorySegment(request->SharedSegment.SharedMemoryID);
                     strncpy(sharedContainer->Data, buffer, SHM_SIZE);
+                    printf("Loaded %ld of %ld bytes\n", bytes_transferred, file_len);
 
                     if(bytes_transferred < file_len)
                     {
-                        sharedContainer->Status = DATA_TRANSFER;
+                        sharedContainer->Status = DATA_LOADED;
+                        printf("Status to DATA_LOADED\n");
                     }
                     else
                     {
                         sharedContainer->Status = TRANSFER_COMPLETE;
+                        printf("Status to TRANSFER_COMPLETE\n");
                     }
-
-                    sem_post(&(request->SharedSegment.SharedSemaphore));
                 }
             }
 

@@ -62,23 +62,23 @@ shm_data_transfer *AttachToSharedMemorySegment(int shmid)
 
 void DetachFromSharedMemorySegment(shm_data_transfer *data)
 {
-    printf("In DetachFromSharedMemorySegment\n");
-
     /* detach from the segment: */
     if (shmdt(data) == -1)
     {
         perror("Error detaching from shared memory segment.");
         exit(1);
     }
+
+    printf("Successfully detached from memory segment\n");
 }
 
 void DestroySharedMemorySegment(int shmid)
 {
-    printf("In DestroySharedMemorySegment\n");
-
     if(shmctl(shmid, IPC_RMID, NULL) == -1)
     {
         perror("Unable to destroy shared memory segment");
         exit(1);
     }
+
+    printf("Successfully destroyed shared memory segment.\n");
 }

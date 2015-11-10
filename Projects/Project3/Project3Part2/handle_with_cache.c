@@ -55,11 +55,11 @@ void InitializeSharedSegmentPool(int nsegments)
     for (i = 0; i < nsegments; i++)
     {
         int memoryID = CreateSharedMemorySegment();
-        sem_t semaphore = CreateSemaphore();
+//        sem_t semaphore = CreateSemaphore();
 
         shm_segment *segment = malloc(sizeof(shm_segment));
         segment->SharedMemoryID = memoryID;
-        segment->SharedSemaphore = semaphore;
+//        segment->SharedSemaphore = semaphore;
         steque_enqueue(_segmentQueue, segment);
     }
 }
@@ -121,9 +121,6 @@ void CleanupSharedSegmentPool()
     {
         shm_segment* segment = steque_pop(_segmentQueue);
 
-        // Destroy semaphores
-        sem_destroy(&(segment->SharedSemaphore));
-
         // Destroy shared memory segment
         DestroySharedMemorySegment(segment->SharedMemoryID);
 
@@ -156,6 +153,7 @@ shm_segment GetSegmentFromPool()
 
 void PutSegmentBackInPool(shm_segment* segment)
 {
+    printf("Put memory segment back in pool...\n");
     pthread_mutex_lock(&_segmentQueueLock);
     steque_enqueue(_segmentQueue, segment);
     steque_pop(_segmentQueue);
@@ -198,26 +196,26 @@ cache_status IsFileInCache(cache_status_request *request)
     return WaitForRequestResponse(request);
 }
 
-void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request)
+void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t fileLen)
 {
-    printf("Sending GF_OK header...\n");
+    printf("Sending GF_OK header to client...\n");
 
     pthread_mutex_lock(&_socketLock);
-    gfs_sendheader(ctx, GF_OK, request->Size);
+    gfs_sendheader(ctx, GF_OK, fileLen);
     pthread_mutex_unlock(&_socketLock);
 }
 
-void WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data)
+size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data)
 {
-    printf("Sending content...\n");
+    printf("Sending content to client...\n");
 
     size_t bytes_transferred = 0;
     size_t chunkSize = SHM_SIZE;
 
     pthread_mutex_lock(&_socketLock);
-    while(bytes_transferred < request->Size)
+    while(bytes_transferred < chunkSize)
     {
-        size_t bytesLeft = request->Size - bytes_transferred;
+        size_t bytesLeft = chunkSize - bytes_transferred;
         if(bytesLeft < chunkSize)
         {
             chunkSize = bytesLeft;
@@ -226,17 +224,18 @@ void WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_d
         size_t sentBytes = gfs_send(ctx, &(data->Data[bytes_transferred]), chunkSize);
         if (sentBytes == -1)
         {
-            printf("Write error, %zd, %zu, %zu\n", sentBytes, bytes_transferred, request->Size);
+            printf("Error writing content to client\n");
             pthread_mutex_unlock(&_socketLock);
             exit(-1);
         }
         else
         {
             bytes_transferred += sentBytes;
-            printf("Sent %ld, %ld of %ld bytes\n", sentBytes, bytes_transferred, request->Size);
         }
     }
     pthread_mutex_unlock(&_socketLock);
+
+    return bytes_transferred;
 }
 
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
@@ -250,25 +249,32 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     printf("SHMID: %d\n", request.SharedSegment.SharedMemoryID);
     strncpy(request.Path, path, MAX_FILE_PATH_LENGTH);
 
+    size_t fileSize = 0;
+
     // if in cache send send via shared memory else get from server
     if(IsFileInCache(&request) == IN_CACHE)
     {
-
-
-        // Initiate file transfer from cache using shared memory
-        WriteHeaderToClient(ctx, &request);
-
         shm_data_transfer* sharedContainer;
         sharedContainer = AttachToSharedMemorySegment(request.SharedSegment.SharedMemoryID);
+        fileSize = sharedContainer->Size;
 
+        // Initiate file transfer from cache using shared memory
+        WriteHeaderToClient(ctx, &request, fileSize);
+
+        size_t total_transferred = 0;
         do
         {
-            // This decriments the semaphore and cache will
-            // increase once it sees that semaphore is zero
-            sem_wait(&(request.SharedSegment.SharedSemaphore));
-            WriteContentToClient(ctx, &request, sharedContainer);
+            if(sharedContainer->Status == DATA_LOADED)
+            {
+                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer);
+                total_transferred += sentBytes;
+                printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
+                sharedContainer->Status = DATA_TRANSFERRED;
+            }
         }
         while(sharedContainer->Status != TRANSFER_COMPLETE);
+
+        printf("Sent %ld of %ld bytes\n", total_transferred, fileSize);
 
         DetachFromSharedMemorySegment(sharedContainer);
     }
@@ -280,6 +286,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 
     PutSegmentBackInPool(&(request.SharedSegment));
 
-    return request.Size;
+    return fileSize;
 }
 
