@@ -28,7 +28,6 @@ pthread_mutex_t _segmentQueueLock;
 // socketLock - controls access to writing to the socket back to the client
 pthread_mutex_t _socketLock;
 
-
 long GetRequestID()
 {
     _idCounter++;
@@ -37,12 +36,14 @@ long GetRequestID()
 
 /* =================== Shared memory segment setup and management =================== */
 
-void InitializeSharedSegmentPool(int nsegments)
+void InitializeSharedSegmentPool(int nsegments, int segmentSize)
 {
     printf("Initializing Shared Segment Pool...\n");
 
     _segmentQueue = malloc(sizeof(steque_t));
+
     steque_init(_segmentQueue);
+
     printf("Queue initialized\n");
 
     if (pthread_mutex_init(&_segmentQueueLock, NULL) != 0)
@@ -54,12 +55,11 @@ void InitializeSharedSegmentPool(int nsegments)
     int i;
     for (i = 0; i < nsegments; i++)
     {
-        int memoryID = CreateSharedMemorySegment();
-//        sem_t semaphore = CreateSemaphore();
+        int memoryID = CreateSharedMemorySegment(segmentSize);
 
         shm_segment *segment = malloc(sizeof(shm_segment));
         segment->SharedMemoryID = memoryID;
-//        segment->SharedSemaphore = semaphore;
+        segment->SegmentSize = segmentSize;
         steque_enqueue(_segmentQueue, segment);
     }
 }
@@ -116,13 +116,13 @@ void CleanupSynchronizationQueues()
 
 void CleanupSharedSegmentPool()
 {
-    // Destroy all semaphores
     while(!steque_isempty(_segmentQueue))
     {
         shm_segment* segment = steque_pop(_segmentQueue);
 
         // Destroy shared memory segment
         DestroySharedMemorySegment(segment->SharedMemoryID);
+        printf("Cleaned shared memory shmid: %d\n", segment->SharedMemoryID);
 
         // Destroy segment struct
         free(segment);
@@ -156,7 +156,6 @@ void PutSegmentBackInPool(shm_segment* segment)
     printf("Put memory segment back in pool...\n");
     pthread_mutex_lock(&_segmentQueueLock);
     steque_enqueue(_segmentQueue, segment);
-    steque_pop(_segmentQueue);
     pthread_mutex_unlock(&_segmentQueueLock);
 }
 
@@ -205,12 +204,14 @@ void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t
     pthread_mutex_unlock(&_socketLock);
 }
 
-size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data)
+size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data, size_t maxSize)
 {
     printf("Sending content to client...\n");
 
     size_t bytes_transferred = 0;
-    size_t chunkSize = SHM_SIZE;
+    size_t chunkSize = request->SharedSegment.SegmentSize;
+    if(maxSize > 0)
+        chunkSize = maxSize;
 
     pthread_mutex_lock(&_socketLock);
     while(bytes_transferred < chunkSize)
@@ -256,26 +257,44 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     {
         shm_data_transfer* sharedContainer;
         sharedContainer = AttachToSharedMemorySegment(request.SharedSegment.SharedMemoryID);
-        fileSize = sharedContainer->Size;
+
+        // Spin until cache is ready to send data
+        while(sharedContainer->Status != TRANSFER_BEGIN &&
+                sharedContainer->Status != DATA_LOADED)
+        {
+            fileSize = sharedContainer->Size;
+        }
+
+        printf("File size: %ld\n", fileSize);
 
         // Initiate file transfer from cache using shared memory
         WriteHeaderToClient(ctx, &request, fileSize);
 
         size_t total_transferred = 0;
-        do
+        while(total_transferred < fileSize)
         {
+            sem_wait(&sharedContainer->SharedSemaphore);
+
             if(sharedContainer->Status == DATA_LOADED)
             {
-                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer);
+                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, 0);
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
                 sharedContainer->Status = DATA_TRANSFERRED;
             }
+            else if(sharedContainer->Status == TRANSFER_COMPLETE)
+            {
+                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, fileSize - total_transferred);
+                total_transferred += sentBytes;
+                printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
+            }
+
+            sem_post(&sharedContainer->SharedSemaphore);
         }
-        while(sharedContainer->Status != TRANSFER_COMPLETE);
 
         printf("Sent %ld of %ld bytes\n", total_transferred, fileSize);
 
+        sharedContainer->Status = INITIALIZED;
         DetachFromSharedMemorySegment(sharedContainer);
     }
     else

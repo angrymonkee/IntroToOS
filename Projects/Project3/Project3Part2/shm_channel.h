@@ -1,14 +1,16 @@
 #include <semaphore.h>
 
-#define SHM_SIZE 1024  /* make it a 1K shared memory segment */
+#define SHM_SIZE 1024
 
 typedef struct shm_segment
 {
     int SharedMemoryID;
+    int SegmentSize;
 }shm_segment;
 
 typedef enum shm_response_status
 {
+    INITIALIZED,
     TRANSFER_BEGIN,
     DATA_LOADED,
     DATA_TRANSFERRED,
@@ -39,7 +41,7 @@ typedef struct cache_status_request
 } cache_status_request;
 
 
-int CreateSharedMemorySegment();
+int CreateSharedMemorySegment(int segmentSize);
 
 sem_t CreateSemaphore();
 

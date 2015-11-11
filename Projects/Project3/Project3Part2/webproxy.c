@@ -33,7 +33,7 @@ static struct option gLongOptions[] = {
   {NULL,            0,                      NULL,             0}
 };
 
-extern void InitializeSharedSegmentPool(int nsegments);
+extern void InitializeSharedSegmentPool(int nsegments, int segmentSize);
 extern void InitializeSynchronizationQueues();
 
 extern void CleanupSharedSegmentPool();
@@ -48,6 +48,8 @@ static void _sig_handler(int signo)
   if (signo == SIGINT || signo == SIGTERM)
   {
     gfserver_stop(&gfs);
+    CleanupSynchronizationQueues();
+    CleanupSharedSegmentPool();
     exit(signo);
   }
 }
@@ -107,7 +109,7 @@ int main(int argc, char **argv)
   }
 
   /* SHM initialization...*/
-  InitializeSharedSegmentPool(nsegments);
+  InitializeSharedSegmentPool(nsegments, segmentSize);
   InitializeSynchronizationQueues();
 
   /*Initializing server*/

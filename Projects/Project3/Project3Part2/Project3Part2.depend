@@ -113,7 +113,7 @@
 	<stdio.h>
 	"steque.h"
 
-1447175608 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
+1447208516 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
 	<stdlib.h>
 	<fcntl.h>
 	<curl/curl.h>
@@ -127,10 +127,10 @@
 	"gfserver.h"
 	"shm_channel.h"
 
-1447173987 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
+1447212027 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
 	<semaphore.h>
 
-1447168748 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
+1447212188 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
 	<stdlib.h>
 	<stdio.h>
 	<sys/ipc.h>
@@ -138,7 +138,7 @@
 	<sys/shm.h>
 	"shm_channel.h"
 
-1447175783 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
+1447212041 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
 	<stdlib.h>
 	<stdio.h>
 	<signal.h>
@@ -156,7 +156,7 @@
 
 1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.h
 
-1446943167 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/webproxy.c
+1447195868 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/webproxy.c
 	<errno.h>
 	<getopt.h>
 	<signal.h>

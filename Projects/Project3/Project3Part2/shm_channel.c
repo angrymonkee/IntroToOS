@@ -6,7 +6,7 @@
 
 #include "shm_channel.h"
 
-int CreateSharedMemorySegment()
+int CreateSharedMemorySegment(int segmentSize)
 {
     printf("In CreateSharedMemorySegment\n");
 
@@ -19,13 +19,18 @@ int CreateSharedMemorySegment()
         exit(1);
     }
 
-    if ((shmid = shmget(key, SHM_SIZE, 0666 | IPC_CREAT)) == -1)
+    if ((shmid = shmget(key, segmentSize, 0666 | IPC_CREAT)) == -1)
     {
         perror("shmget");
         exit(1);
     }
 
     printf("SHMID: %d\n", shmid);
+
+    shm_data_transfer *data = AttachToSharedMemorySegment(shmid);
+    data->Status = INITIALIZED;
+    data->SharedSemaphore = CreateSemaphore();
+    DetachFromSharedMemorySegment(data);
     return shmid;
 }
 
@@ -62,7 +67,6 @@ shm_data_transfer *AttachToSharedMemorySegment(int shmid)
 
 void DetachFromSharedMemorySegment(shm_data_transfer *data)
 {
-    /* detach from the segment: */
     if (shmdt(data) == -1)
     {
         perror("Error detaching from shared memory segment.");

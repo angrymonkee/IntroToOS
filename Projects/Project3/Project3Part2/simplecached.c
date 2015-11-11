@@ -16,9 +16,14 @@
 
 #define FTOK_KEY_FILE "handle_with_cache.c"
 
-static void _sig_handler(int signo){
-	if (signo == SIGINT || signo == SIGTERM){
-		/* Unlink IPC mechanisms here*/
+//void CleanupMessageQueues();
+void CleanupThreads();
+
+static void _sig_handler(int signo)
+{
+	if (signo == SIGINT || signo == SIGTERM)
+	{
+		CleanupThreads();
 		exit(signo);
 	}
 }
@@ -56,11 +61,12 @@ int _threadsAlive = 1;
 
 int _requestQueueId;
 int _responseQueueId;
-//static long _idCounter;
 int _monitorIncomingRequests = 1;
 
 void ProcessCacheTransfers(int *threadID);
 
+/* There is no clean up method for these queues because they
+are not owned by this process. */
 void InitializeMessageQueues()
 {
     printf("Initializing message queues...\n");
@@ -96,67 +102,6 @@ void InitializeMessageQueues()
     }
 }
 
-void CleanupMessageQueues()
-{
-    printf("Cleaning up message queues...\n");
-
-    if (msgctl(_requestQueueId, IPC_RMID, NULL) == -1)
-    {
-        perror("Unable to destroy request queue. Need to destroy manually.\n");
-        exit(1);
-    }
-
-    if (msgctl(_responseQueueId, IPC_RMID, NULL) == -1)
-    {
-        perror("Unable to destroy response queue. Need to destroy manually.\n");
-        exit(1);
-    }
-}
-
-void SendCacheStatusResponse(cache_status_request *request)
-{
-    printf("Sending cache response...\n");
-
-    int size = sizeof(cache_status_request) - sizeof(long);
-    if (msgsnd(_responseQueueId, request, size, 0) == -1)
-    {
-        perror("Unable to properly send cache status response\n");
-    }
-}
-
-void HandleIncomingRequests()
-{
-    printf("Monitoring for requests...\n");
-
-    while(_monitorIncomingRequests)
-    {
-        cache_status_request *request = malloc(sizeof(cache_status_request));
-        ssize_t msgSize = msgrcv(_requestQueueId, request, sizeof(cache_status_request), 0, 0);
-        printf("Message size %lu", msgSize);
-        if(msgSize > 0)
-        {
-            printf("Request recieved for [Path: %s]\n", request->Path);
-
-            if(simplecache_get(request->Path) > 0)
-            {
-                printf("Exists in cache\n");
-                request->CacheStatus = IN_CACHE;
-
-                steque_enqueue(_queue, request);
-            }
-            else
-            {
-                printf("Does not exist in cache\n");
-                request->CacheStatus = NOT_IN_CACHE;
-            }
-
-            SendCacheStatusResponse(request);
-        }
-    }
-
-    printf("Stop handling requests...\n");
-}
-
 void InitializeThreadConstructs()
 {
     printf("Initializing thread constructs...\n");
@@ -175,6 +120,27 @@ void InitializeThreadConstructs()
     {
         printf("\n File lock mutex init failed\n");
         exit(1);
+    }
+}
+
+void CleanupThreads()
+{
+    printf("Cleaning thread...\n");
+
+    _threadsAlive = 0;
+    steque_destroy(_queue);
+    free(_queue);
+    printf("Thread cleaned successfully\n");
+}
+
+void SendCacheStatusResponse(cache_status_request *request)
+{
+    printf("Sending cache response...\n");
+
+    int size = sizeof(cache_status_request) - sizeof(long);
+    if (msgsnd(_responseQueueId, request, size, 0) == -1)
+    {
+        perror("Unable to properly send cache status response\n");
     }
 }
 
@@ -200,14 +166,123 @@ void InitializeThreadPool(int numberOfThreads)
     }
 }
 
-void CleanupThreads()
+void HandleIncomingRequests()
 {
-    printf("Cleaning thread...\n");
+    printf("Monitoring for requests...\n");
 
-    _threadsAlive = 0;
-    steque_destroy(_queue);
-    free(_queue);
-    printf("Thread cleaned successfully\n");
+    while(_monitorIncomingRequests)
+    {
+        cache_status_request *request = malloc(sizeof(cache_status_request));
+        ssize_t msgSize = msgrcv(_requestQueueId, request, sizeof(cache_status_request), 0, 0);
+        printf("Message size %lu\n", msgSize);
+
+        if(msgSize > 0)
+        {
+            printf("Request recieved for [Path: %s]\n", request->Path);
+
+            if(simplecache_get(request->Path) > 0)
+            {
+                printf("Exists in cache\n");
+                request->CacheStatus = IN_CACHE;
+
+                steque_enqueue(_queue, request);
+            }
+            else
+            {
+                printf("Does not exist in cache\n");
+                request->CacheStatus = NOT_IN_CACHE;
+            }
+
+            SendCacheStatusResponse(request);
+        }
+    }
+
+    printf("Stop handling requests...\n");
+}
+
+cache_status_request *DequeueRequest(int *threadID)
+{
+    pthread_mutex_lock(&_queueLock);
+    cache_status_request* request = steque_pop(_queue);
+    pthread_mutex_unlock(&_queueLock);
+    printf("Popped request from queue on thread: %d\n", *threadID);
+    return request;
+}
+
+shm_data_transfer* PrepareSharedMemory(int shmid, ssize_t file_len)
+{
+    shm_data_transfer* sharedContainer = AttachToSharedMemorySegment(shmid);
+    sharedContainer->Size = file_len;
+    sharedContainer->Status = TRANSFER_BEGIN;
+    return sharedContainer;
+}
+
+char *GetStatusString(shm_response_status status)
+{
+    switch(status)
+    {
+        case INITIALIZED:
+            return "INITIALIZED";
+        case TRANSFER_BEGIN:
+            return "TRANSFER_BEGIN";
+        case TRANSFER_COMPLETE:
+            return "TRANSFER_COMPLETE";
+        case DATA_LOADED:
+            return "DATA_LOADED";
+        case DATA_TRANSFERRED:
+            return "DATA_TRANSFERRED";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+void WriteFileToSharedMemory(cache_status_request* request)
+{
+    int descriptor = simplecache_get(request->Path);
+
+    /* Calculating the file size */
+    ssize_t file_len = lseek(descriptor, 0, SEEK_END);
+    printf("File size %ld calculated\n", file_len);
+
+    shm_data_transfer* sharedContainer = PrepareSharedMemory(request->SharedSegment.SharedMemoryID, file_len);
+
+    pthread_mutex_lock(&_fileLock);
+
+    ssize_t bytes_transferred = 0;
+    while(bytes_transferred < file_len)
+    {
+        sem_wait(&sharedContainer->SharedSemaphore);
+
+        if(sharedContainer->Status == DATA_TRANSFERRED || sharedContainer->Status == TRANSFER_BEGIN)
+        {
+            char buffer[request->SharedSegment.SegmentSize];
+            ssize_t read_len = pread(descriptor, buffer, request->SharedSegment.SegmentSize, bytes_transferred);
+            if (read_len <= 0)
+            {
+                fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
+                exit(-1);
+            }
+
+            bytes_transferred += read_len;
+
+            strncpy(sharedContainer->Data, buffer, request->SharedSegment.SegmentSize);
+
+            if(bytes_transferred < file_len)
+            {
+                sharedContainer->Status = DATA_LOADED;
+            }
+            else
+            {
+                sharedContainer->Status = TRANSFER_COMPLETE;
+            }
+
+            printf("Loaded %ld of %ld bytes with status %s\n", bytes_transferred, file_len, GetStatusString(sharedContainer->Status));
+        }
+
+        sem_post(&sharedContainer->SharedSemaphore);
+    }
+
+    pthread_mutex_unlock(&_fileLock);
 }
 
 void ProcessCacheTransfers(int *threadID)
@@ -221,65 +296,11 @@ void ProcessCacheTransfers(int *threadID)
             continue;
         }
 
-        printf("New cache transfer found...\n");
-
-        // Dequeue
-        pthread_mutex_lock(&_queueLock);
-        cache_status_request* request = steque_pop(_queue);
-        pthread_mutex_unlock(&_queueLock);
-        printf("Popped request from queue on thread: %d\n", *threadID);
-
+        cache_status_request* request = DequeueRequest(threadID);
         if(request != NULL)
         {
-            ssize_t file_len;
-            ssize_t bytes_transferred;
-            ssize_t read_len;
-            char buffer[SHM_SIZE];
-
-            int descriptor = simplecache_get(request->Path);
-
-            /* Calculating the file size */
-            file_len = lseek(descriptor, 0, SEEK_END);
-            printf("File size %ld calculated\n", file_len);
-
-            shm_data_transfer* sharedContainer = AttachToSharedMemorySegment(request->SharedSegment.SharedMemoryID);
-            sharedContainer->Size = file_len;
-            sharedContainer->Status = TRANSFER_BEGIN;
-
-            pthread_mutex_lock(&_fileLock);
-
-            // Sending the file contents chunk by chunk
-            bytes_transferred = 0;
-            while(bytes_transferred < file_len)
-            {
-                if(sharedContainer->Status == DATA_TRANSFERRED || sharedContainer->Status == TRANSFER_BEGIN)
-                {
-                    read_len = pread(descriptor, buffer, SHM_SIZE, bytes_transferred);
-                    if (read_len <= 0)
-                    {
-                        fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
-                        exit(-1);
-                    }
-
-                    bytes_transferred += read_len;
-
-                    strncpy(sharedContainer->Data, buffer, SHM_SIZE);
-                    printf("Loaded %ld of %ld bytes\n", bytes_transferred, file_len);
-
-                    if(bytes_transferred < file_len)
-                    {
-                        sharedContainer->Status = DATA_LOADED;
-                        printf("Status to DATA_LOADED\n");
-                    }
-                    else
-                    {
-                        sharedContainer->Status = TRANSFER_COMPLETE;
-                        printf("Status to TRANSFER_COMPLETE\n");
-                    }
-                }
-            }
-
-            pthread_mutex_unlock(&_fileLock);
+            WriteFileToSharedMemory(request);
+            free(request);
         }
     }
 
@@ -324,17 +345,19 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	/* Initializing the cache */
+	// Initialize cache
 	simplecache_init(cachedir);
 
+    // Initializing thread constructs
 	InitializeThreadConstructs();
 	InitializeThreadPool(nthreads);
+
+	// Initializing synchronization queues
 	InitializeMessageQueues();
 
     HandleIncomingRequests();
 
     CleanupThreads();
-	CleanupMessageQueues();
 
 	return 0;
 }
