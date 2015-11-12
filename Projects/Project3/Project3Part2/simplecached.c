@@ -16,7 +16,6 @@
 
 #define FTOK_KEY_FILE "handle_with_cache.c"
 
-//void CleanupMessageQueues();
 void CleanupThreads();
 
 static void _sig_handler(int signo)
@@ -44,10 +43,10 @@ static struct option gLongOptions[] = {
   {NULL,                 0,                      NULL,             0}
 };
 
-void Usage() {
+void Usage()
+{
   fprintf(stdout, "%s", USAGE);
 }
-
 
 /* ========= Threading ========== */
 pthread_t _tid[100];
@@ -67,7 +66,7 @@ void ProcessCacheTransfers(int *threadID);
 
 /* There is no clean up method for these queues because they
 are not owned by this process. */
-void InitializeMessageQueues()
+void InitializeSynchronizationQueues()
 {
     printf("Initializing message queues...\n");
 
@@ -255,17 +254,18 @@ void WriteFileToSharedMemory(cache_status_request* request)
 
         if(sharedContainer->Status == DATA_TRANSFERRED || sharedContainer->Status == TRANSFER_BEGIN)
         {
-            char buffer[request->SharedSegment.SegmentSize];
-            ssize_t read_len = pread(descriptor, buffer, request->SharedSegment.SegmentSize, bytes_transferred);
+//            char buffer[request->SharedSegment.SegmentSize];
+//            ssize_t read_len = pread(descriptor, buffer, request->SharedSegment.SegmentSize, bytes_transferred);
+            ssize_t read_len = pread(descriptor, sharedContainer->Data, request->SharedSegment.SegmentSize, bytes_transferred);
             if (read_len <= 0)
             {
                 fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
                 exit(-1);
             }
 
-            bytes_transferred += read_len;
+//            strncpy(sharedContainer->Data, buffer, read_len);
 
-            strncpy(sharedContainer->Data, buffer, request->SharedSegment.SegmentSize);
+            bytes_transferred += read_len;
 
             if(bytes_transferred < file_len)
             {
@@ -353,7 +353,7 @@ int main(int argc, char **argv)
 	InitializeThreadPool(nthreads);
 
 	// Initializing synchronization queues
-	InitializeMessageQueues();
+	InitializeSynchronizationQueues();
 
     HandleIncomingRequests();
 

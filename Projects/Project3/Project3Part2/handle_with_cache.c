@@ -66,7 +66,7 @@ void InitializeSharedSegmentPool(int nsegments, int segmentSize)
 
 void InitializeSynchronizationQueues()
 {
-    printf("Initializing Shared Segment Pool...\n");
+    printf("Initializing Synchronization Queues...\n");
 
     // Need to create a message queue to handle requests
     // to the cache.
@@ -198,7 +198,6 @@ cache_status IsFileInCache(cache_status_request *request)
 void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t fileLen)
 {
     printf("Sending GF_OK header to client...\n");
-
     pthread_mutex_lock(&_socketLock);
     gfs_sendheader(ctx, GF_OK, fileLen);
     pthread_mutex_unlock(&_socketLock);
@@ -206,8 +205,6 @@ void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t
 
 size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data, size_t maxSize)
 {
-    printf("Sending content to client...\n");
-
     size_t bytes_transferred = 0;
     size_t chunkSize = request->SharedSegment.SegmentSize;
     if(maxSize > 0)
@@ -259,12 +256,9 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         sharedContainer = AttachToSharedMemorySegment(request.SharedSegment.SharedMemoryID);
 
         // Spin until cache is ready to send data
-        while(sharedContainer->Status != TRANSFER_BEGIN &&
-                sharedContainer->Status != DATA_LOADED)
-        {
-            fileSize = sharedContainer->Size;
-        }
+        while(sharedContainer->Status == INITIALIZED);
 
+        fileSize = sharedContainer->Size;
         printf("File size: %ld\n", fileSize);
 
         // Initiate file transfer from cache using shared memory
@@ -277,7 +271,17 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 
             if(sharedContainer->Status == DATA_LOADED)
             {
-                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, 0);
+//                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, 0);
+                pthread_mutex_lock(&_socketLock);
+                size_t sentBytes = gfs_send(ctx, sharedContainer->Data, request.SharedSegment.SegmentSize);
+                if (sentBytes != request.SharedSegment.SegmentSize)
+                {
+                    printf("Error writing content to client\n");
+                    pthread_mutex_unlock(&_socketLock);
+                    exit(-1);
+                }
+                pthread_mutex_unlock(&_socketLock);
+
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
                 sharedContainer->Status = DATA_TRANSFERRED;
@@ -287,6 +291,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
                 size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, fileSize - total_transferred);
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
+                printf("With %ld bytes left over\n", strlen(&(sharedContainer->Data[sentBytes])));
             }
 
             sem_post(&sharedContainer->SharedSemaphore);
@@ -301,6 +306,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     {
         // Initiate file transfer from server using curl
         printf("Response - [Path: %s] not found in cache.\n", request.Path);
+        return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
     }
 
     PutSegmentBackInPool(&(request.SharedSegment));

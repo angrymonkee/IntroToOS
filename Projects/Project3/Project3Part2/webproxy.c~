@@ -33,12 +33,13 @@ static struct option gLongOptions[] = {
   {NULL,            0,                      NULL,             0}
 };
 
-extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
 extern void InitializeSharedSegmentPool(int nsegments, int segmentSize);
 extern void InitializeSynchronizationQueues();
 
 extern void CleanupSharedSegmentPool();
 extern void CleanupSynchronizationQueues();
+
+extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
 
 static gfserver_t gfs;
 
@@ -47,8 +48,8 @@ static void _sig_handler(int signo)
   if (signo == SIGINT || signo == SIGTERM)
   {
     gfserver_stop(&gfs);
-    CleanupSynchronizationQueues();
-    CleanupSharedSegmentPool();
+//    CleanupSynchronizationQueues();
+//    CleanupSharedSegmentPool();
     exit(signo);
   }
 }
@@ -108,8 +109,8 @@ int main(int argc, char **argv)
   }
 
   /* SHM initialization...*/
-  InitializeSharedSegmentPool(nsegments, segmentSize);
-  InitializeSynchronizationQueues();
+//  InitializeSharedSegmentPool(nsegments, segmentSize);
+//  InitializeSynchronizationQueues();
 
   /*Initializing server*/
   gfserver_init(&gfs, nworkerthreads);
@@ -125,8 +126,8 @@ int main(int argc, char **argv)
   /*Loops forever*/
   gfserver_serve(&gfs);
 
-  CleanupSynchronizationQueues();
-  CleanupSharedSegmentPool();
+//  CleanupSynchronizationQueues();
+//  CleanupSharedSegmentPool();
 
   return 0;
 }
