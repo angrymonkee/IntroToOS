@@ -203,37 +203,18 @@ void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t
     pthread_mutex_unlock(&_socketLock);
 }
 
-size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *data, size_t maxSize)
+size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *sharedContainer, size_t size)
 {
-    size_t bytes_transferred = 0;
-    size_t chunkSize = request->SharedSegment.SegmentSize;
-    if(maxSize > 0)
-        chunkSize = maxSize;
-
     pthread_mutex_lock(&_socketLock);
-    while(bytes_transferred < chunkSize)
+    size_t sentBytes = gfs_send(ctx, sharedContainer->Data, size);
+    if (sentBytes != size)
     {
-        size_t bytesLeft = chunkSize - bytes_transferred;
-        if(bytesLeft < chunkSize)
-        {
-            chunkSize = bytesLeft;
-        }
-
-        size_t sentBytes = gfs_send(ctx, &(data->Data[bytes_transferred]), chunkSize);
-        if (sentBytes == -1)
-        {
-            printf("Error writing content to client\n");
-            pthread_mutex_unlock(&_socketLock);
-            exit(-1);
-        }
-        else
-        {
-            bytes_transferred += sentBytes;
-        }
+        printf("Error writing content to client\n");
+        pthread_mutex_unlock(&_socketLock);
+        exit(-1);
     }
     pthread_mutex_unlock(&_socketLock);
-
-    return bytes_transferred;
+    return sentBytes;
 }
 
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
@@ -271,17 +252,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 
             if(sharedContainer->Status == DATA_LOADED)
             {
-//                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, 0);
-                pthread_mutex_lock(&_socketLock);
-                size_t sentBytes = gfs_send(ctx, sharedContainer->Data, request.SharedSegment.SegmentSize);
-                if (sentBytes != request.SharedSegment.SegmentSize)
-                {
-                    printf("Error writing content to client\n");
-                    pthread_mutex_unlock(&_socketLock);
-                    exit(-1);
-                }
-                pthread_mutex_unlock(&_socketLock);
-
+                size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, request.SharedSegment.SegmentSize);
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
                 sharedContainer->Status = DATA_TRANSFERRED;

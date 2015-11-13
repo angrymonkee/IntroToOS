@@ -254,16 +254,12 @@ void WriteFileToSharedMemory(cache_status_request* request)
 
         if(sharedContainer->Status == DATA_TRANSFERRED || sharedContainer->Status == TRANSFER_BEGIN)
         {
-//            char buffer[request->SharedSegment.SegmentSize];
-//            ssize_t read_len = pread(descriptor, buffer, request->SharedSegment.SegmentSize, bytes_transferred);
             ssize_t read_len = pread(descriptor, sharedContainer->Data, request->SharedSegment.SegmentSize, bytes_transferred);
             if (read_len <= 0)
             {
                 fprintf(stderr, "simplecached process read error, %zd, %zu, %zu", read_len, bytes_transferred, file_len );
                 exit(-1);
             }
-
-//            strncpy(sharedContainer->Data, buffer, read_len);
 
             bytes_transferred += read_len;
 
