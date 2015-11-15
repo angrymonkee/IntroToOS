@@ -244,6 +244,7 @@ void WriteFileToSharedMemory(cache_status_request* request)
     printf("File size %ld calculated\n", file_len);
 
     shm_data_transfer* sharedContainer = PrepareSharedMemory(request->SharedSegment.SharedMemoryID, file_len);
+    printf("Shared memory prepared\n");
 
     pthread_mutex_lock(&_fileLock);
 

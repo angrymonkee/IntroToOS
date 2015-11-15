@@ -1,0 +1,69 @@
+# depslib dependency file v1.0
+1427830867 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/content.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/stat.h>
+	<string.h>
+	<unistd.h>
+	<fcntl.h>
+
+1443292665 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/gfclient_download.c
+	<errno.h>
+	<getopt.h>
+	<stdlib.h>
+	<string.h>
+	<sys/stat.h>
+	<stdio.h>
+	<unistd.h>
+	<stdint.h>
+	<pthread.h>
+	"workload.h"
+	"gfclient.h"
+	"steque.h"
+
+1430970503 /home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/workload.h
+
+1428605375 /home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/gfclient.h
+	<stdlib.h>
+
+1427863569 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/steque.c
+	<stdlib.h>
+	<stdio.h>
+	"steque.h"
+
+1443150880 /home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/steque.h
+
+1431115757 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/workload.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<pthread.h>
+	"workload.h"
+
+1443287829 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/gfserver_main.c
+	<errno.h>
+	<getopt.h>
+	<signal.h>
+	<strings.h>
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	"gfserver.h"
+	"content.h"
+
+1432182011 /home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/gfserver.h
+
+1428243720 /home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/content.h
+
+1443292479 source:/home/dan/Code/IntoToOS/Projects/Project1/Part2/I2OSProject1Part2/handler.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	<pthread.h>
+	"gfserver.h"
+	"content.h"
+	"steque.h"
+

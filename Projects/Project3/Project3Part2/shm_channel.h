@@ -19,7 +19,6 @@ typedef enum shm_response_status
 
 typedef struct shm_data_transfer
 {
-    long mtype;
     char Data[SHM_SIZE];
     shm_response_status Status;
     sem_t SharedSemaphore;
@@ -41,7 +40,7 @@ typedef struct cache_status_request
 } cache_status_request;
 
 
-int CreateSharedMemorySegment(int segmentSize);
+int CreateSharedMemorySegment(int segmentSize, int projectID);
 
 sem_t CreateSemaphore();
 

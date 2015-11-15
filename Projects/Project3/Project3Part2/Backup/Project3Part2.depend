@@ -1,0 +1,168 @@
+# depslib dependency file v1.0
+1426371228 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/handle_with_cache.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1426369740 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/gfserver.h
+	<pthread.h>
+	"steque.h"
+
+1426369740 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/steque.h
+
+1426460762 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/handle_with_file.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445222498 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/main.c
+	<stdio.h>
+	<stdlib.h>
+
+1426371228 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/shm_channel.c
+
+1426370896 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/simplecache.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/stat.h>
+	<string.h>
+	<unistd.h>
+	<fcntl.h>
+
+1426371228 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/simplecached.c
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	<unistd.h>
+	<string.h>
+	<getopt.h>
+	<pthread.h>
+	"shm_channel.h"
+	"simplecache.h"
+
+1426371228 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/shm_channel.h
+
+1426370896 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/simplecache.h
+
+1426369740 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/steque.c
+	<stdlib.h>
+	<stdio.h>
+	"steque.h"
+
+1445556185 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/webproxy.c
+	<errno.h>
+	<getopt.h>
+	<signal.h>
+	<strings.h>
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	"gfserver.h"
+
+1445554347 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part1/handle_with_curl.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_curl.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/gfserver.h
+	<pthread.h>
+	"steque.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.h
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_file.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	"gfserver.h"
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.c
+	<stdio.h>
+	<stdlib.h>
+	<sys/stat.h>
+	<string.h>
+	<unistd.h>
+	<fcntl.h>
+
+1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.c
+	<stdlib.h>
+	<stdio.h>
+	"steque.h"
+
+1447381567 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
+	<stdlib.h>
+	<fcntl.h>
+	<curl/curl.h>
+	<string.h>
+	<unistd.h>
+	<errno.h>
+	<sys/ipc.h>
+	<sys/msg.h>
+	<sys/shm.h>
+	<semaphore.h>
+	"gfserver.h"
+	"shm_channel.h"
+
+1447212027 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
+	<semaphore.h>
+
+1447212188 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
+	<stdlib.h>
+	<stdio.h>
+	<sys/ipc.h>
+	<sys/msg.h>
+	<sys/shm.h>
+	"shm_channel.h"
+
+1447380282 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	<unistd.h>
+	<string.h>
+	<getopt.h>
+	<pthread.h>
+	<sys/ipc.h>
+	<sys/msg.h>
+	<sys/shm.h>
+	<semaphore.h>
+	"shm_channel.h"
+	"simplecache.h"
+	"steque.h"
+
+1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.h
+
+1447303456 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/webproxy.c
+	<errno.h>
+	<getopt.h>
+	<signal.h>
+	<strings.h>
+	<stdlib.h>
+	<stdio.h>
+	<signal.h>
+	"gfserver.h"
+

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="I2OSProject1Part2" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/I2OSProject1Part2" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/I2OSProject1Part2" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="Makefile" />
+		<Unit filename="content.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="content.h" />
+		<Unit filename="content.o" />
+		<Unit filename="content.txt" />
+		<Unit filename="gfclient.h" />
+		<Unit filename="gfclient.o" />
+		<Unit filename="gfclient_download" />
+		<Unit filename="gfclient_download.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="gfclient_download.o" />
+		<Unit filename="gfserver.h" />
+		<Unit filename="gfserver.o" />
+		<Unit filename="gfserver_main" />
+		<Unit filename="gfserver_main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="gfserver_main.o" />
+		<Unit filename="handler.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="handler.o" />
+		<Unit filename="log.h" />
+		<Unit filename="steque.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="steque.h" />
+		<Unit filename="steque.o" />
+		<Unit filename="workload.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="workload.h" />
+		<Unit filename="workload.o" />
+		<Unit filename="workload.txt" />
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

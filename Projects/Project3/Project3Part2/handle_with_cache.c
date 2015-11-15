@@ -8,6 +8,7 @@
 #include <sys/msg.h>
 #include <sys/shm.h>
 #include <semaphore.h>
+#include <time.h>
 
 #include "gfserver.h"
 #include "shm_channel.h"
@@ -27,6 +28,29 @@ steque_t* _segmentQueue;
 pthread_mutex_t _segmentQueueLock;
 // socketLock - controls access to writing to the socket back to the client
 pthread_mutex_t _socketLock;
+
+/* ================ Debugging ================= */
+#define V_LOW       1
+#define V_MED       2
+#define V_MEDIUM    V_MED
+#define V_HIGH      3
+#define V_ULTRA     4
+
+extern int _debuggingLevel;
+void VerbosityTimeNow(FILE * fp)
+{
+    time_t now = time(NULL);
+    fprintf(fp, "%s", ctime(&now));
+}
+
+#define VERBOSE_FP      stdout
+
+#define DEBUG(lvl, ...) \
+        ( _debuggingLevel >= lvl ? \
+          VerbosityTimeNow(VERBOSE_FP), \
+          fprintf(VERBOSE_FP, __VA_ARGS__ ), \
+          fputc('\n',VERBOSE_FP), \
+          fflush(VERBOSE_FP) : 0)
 
 long GetRequestID()
 {
@@ -55,12 +79,13 @@ void InitializeSharedSegmentPool(int nsegments, int segmentSize)
     int i;
     for (i = 0; i < nsegments; i++)
     {
-        int memoryID = CreateSharedMemorySegment(segmentSize);
+        int memoryID = CreateSharedMemorySegment(segmentSize, i);
 
         shm_segment *segment = malloc(sizeof(shm_segment));
         segment->SharedMemoryID = memoryID;
         segment->SegmentSize = segmentSize;
         steque_enqueue(_segmentQueue, segment);
+        printf("Created shared segment with SHMID: %d\n", memoryID);
     }
 }
 
@@ -144,6 +169,7 @@ shm_segment GetSegmentFromPool()
             {
                 shm_segment *segment = steque_pop(_segmentQueue);
                 printf("GetSegmentFromPool - SHMID: %d\n", segment->SharedMemoryID);
+                pthread_mutex_unlock(&_segmentQueueLock);
                 return *segment;
             }
             pthread_mutex_unlock(&_segmentQueueLock);
@@ -153,10 +179,10 @@ shm_segment GetSegmentFromPool()
 
 void PutSegmentBackInPool(shm_segment* segment)
 {
-    printf("Put memory segment back in pool...\n");
     pthread_mutex_lock(&_segmentQueueLock);
     steque_enqueue(_segmentQueue, segment);
     pthread_mutex_unlock(&_segmentQueueLock);
+    printf("Put memory segment back in pool...\n");
 }
 
 cache_status WaitForRequestResponse(cache_status_request *request)
@@ -220,6 +246,7 @@ size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
     printf("Handling with cache...\n");
+//    DEBUG(V_LOW, "TEST");
 
     cache_status_request request;
     request.mtype = GetRequestID();
@@ -262,7 +289,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
                 size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, fileSize - total_transferred);
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
-                printf("With %ld bytes left over\n", strlen(&(sharedContainer->Data[sentBytes])));
             }
 
             sem_post(&sharedContainer->SharedSemaphore);
@@ -284,4 +310,3 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 
     return fileSize;
 }
-

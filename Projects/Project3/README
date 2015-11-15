@@ -1,0 +1,81 @@
+Proxy-Cache Implementation Explaination
+
+	The proxy-cache design is used to efficiently serve files which have 
+	already been retrieved from remote locations by storing a copy in a 
+	local cache. Ideally these files can be served directly from cache 
+	and avoid unwanted overhead of going to the remote server every time. 
+
+Communication Structures:
+	Synchronizing communication between the proxy and the cache required 
+	two omni directional message queues. One for requests to see if the 
+	file exists in the cache and one for the response from the cache. 
+	Request and response messages have different purposes and therefore 
+	require different strutures
+
+Request Message Structure:
+	The request message contains two main pieces of data. First is the 
+	path of the file to be retrieved from the cache. Second is the shared 
+	memory location (SHMID) of an "initialized" shared memory segment. 
+	This segment is only used if the file exists in the cache and is 
+	otherwise returned to the pool to be ready for the next request.
+
+Response Message Structure:
+	The response message contains a status indicating whether the file 
+	exists in the cache or not. Also, if a file does exist in the cache, 
+	the file size is returned in the response message.
+
+Shared Memory Structure:
+	Each shared memory segment is initialized with a shared binary 
+	semaphore to used by both the webproxy and the cache when reading and 
+	writing to the shared memory. Not only is this used to control access 
+	to the file but also as an optimization to prevent unnecessary 
+	spinning on either side of the transmission.
+
+
+Webproxy Startup:
+	When the webproxy is started it will initialize two major components 
+	required to interact with the cache. First are the message queues 
+	required for synchronizing requests with the cache. Second, is a 
+	shared memory segment pool to eliminate the overhead of creating and 
+	destroying memory segments per request on an ad-hoc basis. As 
+	requests come in, they are assigned an available segment from the 
+	pool. If the file exists in the cache then transmission can begin 
+	immediately. Once the transmission is complete the shared memory is 
+	cleared and placed back in the pool. The number of the shared segments 
+	in the pool is determined at runtime when the (-n) switch is set via 
+	the input parameters. By default this is set to 1. Each shared memory 
+	segment size is also set via input parameters at runtime, with the 
+	(-z) switch. This is set to 1024 by default.
+
+
+Cache Startup:
+	When the cache is started it will initialize a connection to the 
+	request and response message queues created by the webproxy. 
+	Additionally, a set of worker threads are created to handle incoming 
+	requests from the proxy so multiple files can be served simultaneously.
+
+
+Procedure Walk-Through:
+
+1. A request is initiated by the client application
+2. The webproxy receives and handles the request
+	a. A new request is created to check the status of the file in the cache
+	b. The request is placed on the message queue and transmitted to the cache
+	c. The cache checks to see if the file exists
+		1. If the file exists:
+			a. The file size is calculated and an "IN_CACHE" status is sent back to the proxy via the response message queue
+			b. One of the worker threads begins writing to the shared memory location, chunk by chunk
+			c. Once the file has been completely written, the cache detaches from the share memory location
+		2. If the file does not exist:
+			a. A response message is created with a "NOT_IN_CACHE" status and placed on the response message queue
+	d. The response is processed by the proxy
+		1. If the file does not exist, the proxy will begin the process to check the remote location for the file (as stated in the project spec, not actually implemented for this part of the project). 
+		2. If a file was found in the cache:
+			a. The webproxy will send a header message to the client indicating that the file was identified and is being transmitted
+			b. The webproxy begins reading chunk by chunk from the shared memory location and transmits the file to the client
+			c. Once the last chunk of the file is transferred the shared memory segment is cleared and returned to the pool
+
+
+
+
+

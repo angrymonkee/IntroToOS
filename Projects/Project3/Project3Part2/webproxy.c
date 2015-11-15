@@ -23,14 +23,15 @@
 
 
 /* OPTIONS DESCRIPTOR ====================================================== */
-static struct option gLongOptions[] = {
-  {"segment-count", required_argument,      NULL,           'n'},
-  {"segment-size",  required_argument,      NULL,           'z'},
-  {"port",          required_argument,      NULL,           'p'},
-  {"thread-count",  required_argument,      NULL,           't'},
-  {"server",        required_argument,      NULL,           's'},
-  {"help",          no_argument,            NULL,           'h'},
-  {NULL,            0,                      NULL,             0}
+static struct option gLongOptions[] =
+{
+    {"segment-count", required_argument,      NULL,           'n'},
+    {"segment-size",  required_argument,      NULL,           'z'},
+    {"port",          required_argument,      NULL,           'p'},
+    {"thread-count",  required_argument,      NULL,           't'},
+    {"server",        required_argument,      NULL,           's'},
+    {"help",          no_argument,            NULL,           'h'},
+    {NULL,            0,                      NULL,             0}
 };
 
 extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
@@ -44,89 +45,93 @@ static gfserver_t gfs;
 
 static void _sig_handler(int signo)
 {
-  if (signo == SIGINT || signo == SIGTERM)
-  {
-    gfserver_stop(&gfs);
-    CleanupSynchronizationQueues();
-    CleanupSharedSegmentPool();
-    exit(signo);
-  }
+    if (signo == SIGINT || signo == SIGTERM)
+    {
+        gfserver_stop(&gfs);
+        CleanupSynchronizationQueues();
+        CleanupSharedSegmentPool();
+        exit(signo);
+    }
 }
+
+int _debuggingLevel;
 
 /* Main ========================================================= */
 int main(int argc, char **argv)
 {
-  int i, option_char = 0;
-  unsigned short port = 8888;
-  unsigned short nworkerthreads = 1;
-  unsigned short nsegments = 1;
-  unsigned short segmentSize = 1024;
+    int i, option_char = 0;
+    unsigned short port = 8888;
+    unsigned short nworkerthreads = 1;
+    unsigned short nsegments = 1;
+    unsigned short segmentSize = 1024;
 
-  char *server = "http://s3.amazonaws.com/content.udacity-data.com";
+    _debuggingLevel = 1;
 
-  if (signal(SIGINT, _sig_handler) == SIG_ERR)
-  {
-    fprintf(stderr,"Can't catch SIGINT...exiting.\n");
-    exit(EXIT_FAILURE);
-  }
+    char *server = "http://s3.amazonaws.com/content.udacity-data.com";
 
-  if (signal(SIGTERM, _sig_handler) == SIG_ERR)
-  {
-    fprintf(stderr,"Can't catch SIGTERM...exiting.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // Parse and set command line arguments
-  while ((option_char = getopt_long(argc, argv, "n:z:p:t:s:h", gLongOptions, NULL)) != -1)
-  {
-    switch (option_char)
+    if (signal(SIGINT, _sig_handler) == SIG_ERR)
     {
-      case 'n': // segment-count
-        nsegments = atoi(optarg);
-        break;
-      case 'z': // segnment-size
-        segmentSize = atoi(optarg);
-        break;
-      case 'p': // listen-port
-        port = atoi(optarg);
-        break;
-      case 't': // thread-count
-        nworkerthreads = atoi(optarg);
-        break;
-      case 's': // file-path
-        server = optarg;
-        printf("set server to %s\n", server);
-        break;
-      case 'h': // help
-        fprintf(stdout, "%s", USAGE);
-        exit(0);
-        break;
-      default:
-        fprintf(stderr, "%s", USAGE);
-        exit(1);
+        fprintf(stderr,"Can't catch SIGINT...exiting.\n");
+        exit(EXIT_FAILURE);
     }
-  }
 
-  /* SHM initialization...*/
-  InitializeSharedSegmentPool(nsegments, segmentSize);
-  InitializeSynchronizationQueues();
+    if (signal(SIGTERM, _sig_handler) == SIG_ERR)
+    {
+        fprintf(stderr,"Can't catch SIGTERM...exiting.\n");
+        exit(EXIT_FAILURE);
+    }
 
-  /*Initializing server*/
-  gfserver_init(&gfs, nworkerthreads);
+    // Parse and set command line arguments
+    while ((option_char = getopt_long(argc, argv, "n:z:p:t:s:h", gLongOptions, NULL)) != -1)
+    {
+        switch (option_char)
+        {
+        case 'n': // segment-count
+            nsegments = atoi(optarg);
+            break;
+        case 'z': // segnment-size
+            segmentSize = atoi(optarg);
+            break;
+        case 'p': // listen-port
+            port = atoi(optarg);
+            break;
+        case 't': // thread-count
+            nworkerthreads = atoi(optarg);
+            break;
+        case 's': // file-path
+            server = optarg;
+            printf("set server to %s\n", server);
+            break;
+        case 'h': // help
+            fprintf(stdout, "%s", USAGE);
+            exit(0);
+            break;
+        default:
+            fprintf(stderr, "%s", USAGE);
+            exit(1);
+        }
+    }
 
-  /*Setting options*/
-  gfserver_setopt(&gfs, GFS_PORT, port);
-  gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
-  gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_cache);
-  printf("server set to %s\n", server);
-  for(i = 0; i < nworkerthreads; i++)
-    gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
+    /* SHM initialization...*/
+    InitializeSharedSegmentPool(nsegments, segmentSize);
+    InitializeSynchronizationQueues();
 
-  /*Loops forever*/
-  gfserver_serve(&gfs);
+    /*Initializing server*/
+    gfserver_init(&gfs, nworkerthreads);
 
-  CleanupSynchronizationQueues();
-  CleanupSharedSegmentPool();
+    /*Setting options*/
+    gfserver_setopt(&gfs, GFS_PORT, port);
+    gfserver_setopt(&gfs, GFS_MAXNPENDING, 10);
+    gfserver_setopt(&gfs, GFS_WORKER_FUNC, handle_with_cache);
+    printf("server set to %s\n", server);
+    for(i = 0; i < nworkerthreads; i++)
+        gfserver_setopt(&gfs, GFS_WORKER_ARG, i, server);
 
-  return 0;
+    /*Loops forever*/
+    gfserver_serve(&gfs);
+
+    CleanupSynchronizationQueues();
+    CleanupSharedSegmentPool();
+
+    return 0;
 }

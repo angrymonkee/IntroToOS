@@ -85,11 +85,11 @@
 	<errno.h>
 	"gfserver.h"
 
-1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/gfserver.h
+1426369740 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/gfserver.h
 	<pthread.h>
 	"steque.h"
 
-1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.h
+1447596267 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.h
 
 1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_file.c
 	<stdlib.h>
@@ -108,12 +108,12 @@
 	<unistd.h>
 	<fcntl.h>
 
-1445874028 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.c
+1447596267 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/steque.c
 	<stdlib.h>
 	<stdio.h>
 	"steque.h"
 
-1447381567 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
+1447607416 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/handle_with_cache.c
 	<stdlib.h>
 	<fcntl.h>
 	<curl/curl.h>
@@ -124,13 +124,14 @@
 	<sys/msg.h>
 	<sys/shm.h>
 	<semaphore.h>
+	<time.h>
 	"gfserver.h"
 	"shm_channel.h"
 
-1447212027 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
+1447606760 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.h
 	<semaphore.h>
 
-1447212188 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
+1447605244 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/shm_channel.c
 	<stdlib.h>
 	<stdio.h>
 	<sys/ipc.h>
@@ -138,7 +139,7 @@
 	<sys/shm.h>
 	"shm_channel.h"
 
-1447380282 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
+1447558673 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecached.c
 	<stdlib.h>
 	<stdio.h>
 	<signal.h>
@@ -156,7 +157,7 @@
 
 1445874028 /home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/simplecache.h
 
-1447303456 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/webproxy.c
+1447604436 source:/home/dan/Code/IntoToOS/Projects/Project3/Project3Part2/webproxy.c
 	<errno.h>
 	<getopt.h>
 	<signal.h>
