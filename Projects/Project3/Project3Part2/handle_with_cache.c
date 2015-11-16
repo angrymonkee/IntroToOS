@@ -177,12 +177,15 @@ shm_segment GetSegmentFromPool()
     }
 }
 
-void PutSegmentBackInPool(shm_segment* segment)
+void PutSegmentBackInPool(shm_segment origSegment)
 {
+    shm_segment *segment = malloc(sizeof(shm_segment));
+    segment->SharedMemoryID = origSegment.SharedMemoryID;
+    segment->SegmentSize = origSegment.SegmentSize;
     pthread_mutex_lock(&_segmentQueueLock);
     steque_enqueue(_segmentQueue, segment);
     pthread_mutex_unlock(&_segmentQueueLock);
-    printf("Put memory segment back in pool...\n");
+    printf("Memory segment SHMID:%d back in pool successfully...\n", segment->SharedMemoryID);
 }
 
 cache_status WaitForRequestResponse(cache_status_request *request)
@@ -248,9 +251,10 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
     printf("Handling with cache...\n");
 //    DEBUG(V_LOW, "TEST");
 
+    shm_segment shmSegment = GetSegmentFromPool();
     cache_status_request request;
     request.mtype = GetRequestID();
-    request.SharedSegment = GetSegmentFromPool();
+    request.SharedSegment = shmSegment;
 
     printf("SHMID: %d\n", request.SharedSegment.SharedMemoryID);
     strncpy(request.Path, path, MAX_FILE_PATH_LENGTH);
@@ -297,6 +301,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         printf("Sent %ld of %ld bytes\n", total_transferred, fileSize);
 
         sharedContainer->Status = INITIALIZED;
+        sharedContainer->Size = 0;
         DetachFromSharedMemorySegment(sharedContainer);
     }
     else
@@ -306,7 +311,7 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
     }
 
-    PutSegmentBackInPool(&(request.SharedSegment));
+    PutSegmentBackInPool(shmSegment);
 
     return fileSize;
 }

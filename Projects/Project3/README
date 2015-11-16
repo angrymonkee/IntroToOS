@@ -3,11 +3,12 @@ Proxy-Cache Implementation Explaination
 	The proxy-cache design is used to efficiently serve files which have 
 	already been retrieved from remote locations by storing a copy in a 
 	local cache. Ideally these files can be served directly from cache 
-	and avoid unwanted overhead of going to the remote server every time. 
+	and avoid the unnecessary overhead of going to the remote server for 
+	every request. 
 
 Communication Structures:
 	Synchronizing communication between the proxy and the cache required 
-	two omni directional message queues. One for requests to see if the 
+	two unidirectional message queues. One for requests to see if the 
 	file exists in the cache and one for the response from the cache. 
 	Request and response messages have different purposes and therefore 
 	require different strutures
@@ -52,30 +53,44 @@ Cache Startup:
 	When the cache is started it will initialize a connection to the 
 	request and response message queues created by the webproxy. 
 	Additionally, a set of worker threads are created to handle incoming 
-	requests from the proxy so multiple files can be served simultaneously.
+	requests from the proxy so multiple files can be served simultaneously
+	by the cache.
 
 
 Procedure Walk-Through:
+	1. A request is initiated by the client application and sent to the webproxy
+	2. The webproxy receives and handles the request
+		a. The webproxy creates a new request to send to the cache daemon to 
+		   check if the file in the cache
+		b. The request is placed on the message queue and transmitted to the 
+		   cache daemon
+		c. The cache checks to see if the file exists
+			1. If the file exists:
+				a. The file size is calculated and an "IN_CACHE" status response 
+				   is sent back to the proxy via the appropriate message queue
+				b. One of the worker threads begins writing to the shared memory 
+				   location, chunk by chunk; each time waiting for the webproxy 
+				   to send each chunk back to the client
+				c. Once the file has been completely written, the cache detaches 
+				   from the shared memory location
+			2. If the file does not exist:
+				a. A response message is created with a "NOT_IN_CACHE" status and 
+				   placed on the response message queue
+		d. The response is processed by the proxy
+			1. If the file does not exist, the proxy will begin the process to 
+			   check the remote location for the file (as stated in the project 
+			   spec, not actually implemented for this part of the project). 
+			2. If a file was found in the cache:
+				a. The webproxy will send a header message to the client 
+				   indicating that the file was identified and is being 
+				   transmitted
+				b. The webproxy begins reading chunk by chunk from the shared 
+				   memory location and transmits the file to the client
+				c. Once the last chunk of the file is transferred the shared 
+				   memory segment is cleared and returned to the pool
 
-1. A request is initiated by the client application
-2. The webproxy receives and handles the request
-	a. A new request is created to check the status of the file in the cache
-	b. The request is placed on the message queue and transmitted to the cache
-	c. The cache checks to see if the file exists
-		1. If the file exists:
-			a. The file size is calculated and an "IN_CACHE" status is sent back to the proxy via the response message queue
-			b. One of the worker threads begins writing to the shared memory location, chunk by chunk
-			c. Once the file has been completely written, the cache detaches from the share memory location
-		2. If the file does not exist:
-			a. A response message is created with a "NOT_IN_CACHE" status and placed on the response message queue
-	d. The response is processed by the proxy
-		1. If the file does not exist, the proxy will begin the process to check the remote location for the file (as stated in the project spec, not actually implemented for this part of the project). 
-		2. If a file was found in the cache:
-			a. The webproxy will send a header message to the client indicating that the file was identified and is being transmitted
-			b. The webproxy begins reading chunk by chunk from the shared memory location and transmits the file to the client
-			c. Once the last chunk of the file is transferred the shared memory segment is cleared and returned to the pool
-
-
+Known Issues:
+1. Currently, the file transmission will work for one file at a time. But has an issue when sending multiple requests at a time.
 
 
 
