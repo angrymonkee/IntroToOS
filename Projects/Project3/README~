@@ -4,11 +4,16 @@ Proxy-Cache Implementation Explaination
 	already been retrieved from remote locations by storing a copy in a 
 	local cache. Ideally these files can be served directly from cache 
 	and avoid the unnecessary overhead of going to the remote server for 
-	every request. 
+	every request. I have seen successful runs VERY consistently when 
+	running locally. I have tested with MD5 and SHA1 comparisons on all 
+	transmitted files as well as completed a "DHEX" comparison on the 
+	output. All appear to be exact and transferred successfully. Running
+	the tests in udacity have not gotten past the first test because I 
+	believe a memory size different than 1024 is being used.
 
 Communication Structures:
 	Synchronizing communication between the proxy and the cache required 
-	two omni directional message queues. One for requests to see if the 
+	two unidirectional message queues. One for requests to see if the 
 	file exists in the cache and one for the response from the cache. 
 	Request and response messages have different purposes and therefore 
 	require different strutures
@@ -90,6 +95,8 @@ Procedure Walk-Through:
 				   memory segment is cleared and returned to the pool
 
 
+Known Issues:
+1. Currently, I have only been able to process successfully when the memory size is set to 1024. This limitation was not discovered until the last minute so I have not had the opportunity to make the required adjustments to resolve this issue.
 
 
 

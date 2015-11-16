@@ -16,6 +16,8 @@
 #define FTOK_KEY_FILE "handle_with_cache.c"
 #define MAX_FILE_PATH_LENGTH 255
 
+extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
+
 int _requestQueueId;
 int _responseQueueId;
 static long _idCounter;
@@ -81,7 +83,7 @@ void InitializeSharedSegmentPool(int nsegments, int segmentSize)
     {
         int memoryID = CreateSharedMemorySegment(segmentSize, i);
 
-        shm_segment *segment = malloc(sizeof(shm_segment) + segmentSize);
+        shm_segment *segment = malloc(sizeof(shm_segment));
         segment->SharedMemoryID = memoryID;
         segment->SegmentSize = segmentSize;
         steque_enqueue(_segmentQueue, segment);
@@ -235,7 +237,7 @@ void WriteHeaderToClient(gfcontext_t *ctx, cache_status_request *request, size_t
 size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm_data_transfer *sharedContainer, size_t size)
 {
     pthread_mutex_lock(&_socketLock);
-    size_t sentBytes = gfs_send(ctx, sharedContainer->Data2, size);
+    size_t sentBytes = gfs_send(ctx, sharedContainer->Data, size);
     if (sentBytes != size)
     {
         printf("Error writing content to client\n");

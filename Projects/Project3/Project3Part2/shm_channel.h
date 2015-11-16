@@ -19,10 +19,11 @@ typedef enum shm_response_status
 
 typedef struct shm_data_transfer
 {
-    char Data[SHM_SIZE];
+//    char Data[SHM_SIZE];
     shm_response_status Status;
     sem_t SharedSemaphore;
     size_t Size;
+    char Data2[];
 } shm_data_transfer;
 
 typedef enum cache_status

@@ -21,13 +21,13 @@
 "  -c                  Content file mapping keys to content files\n"          \
 "  -h                  Show this help message\n"                              \
 
-extern ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg);
+extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
 extern void InitializeThreadPool(int numberOfThreads);
 extern void InitializeThreadConstructs();
 extern void ThreadCleanup();
 
-extern void InitializeCurl();
 extern void CurlCleanup();
+extern void InitializeCurl();
 
 extern void InitializeSharedSegmentPool(int nsegments, int segmentSize);
 extern void InitializeSynchronizationQueues();

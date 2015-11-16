@@ -16,6 +16,8 @@
 #define FTOK_KEY_FILE "handle_with_cache.c"
 #define MAX_FILE_PATH_LENGTH 255
 
+extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
+
 int _requestQueueId;
 int _responseQueueId;
 static long _idCounter;
@@ -52,7 +54,6 @@ void VerbosityTimeNow(FILE * fp)
           fputc('\n',VERBOSE_FP), \
           fflush(VERBOSE_FP) : 0)
 
-
 long GetRequestID()
 {
     _idCounter++;
@@ -80,12 +81,13 @@ void InitializeSharedSegmentPool(int nsegments, int segmentSize)
     int i;
     for (i = 0; i < nsegments; i++)
     {
-        int memoryID = CreateSharedMemorySegment(segmentSize);
+        int memoryID = CreateSharedMemorySegment(segmentSize, i);
 
         shm_segment *segment = malloc(sizeof(shm_segment));
         segment->SharedMemoryID = memoryID;
         segment->SegmentSize = segmentSize;
         steque_enqueue(_segmentQueue, segment);
+        printf("Created shared segment with SHMID: %d\n", memoryID);
     }
 }
 
@@ -169,6 +171,7 @@ shm_segment GetSegmentFromPool()
             {
                 shm_segment *segment = steque_pop(_segmentQueue);
                 printf("GetSegmentFromPool - SHMID: %d\n", segment->SharedMemoryID);
+                pthread_mutex_unlock(&_segmentQueueLock);
                 return *segment;
             }
             pthread_mutex_unlock(&_segmentQueueLock);
@@ -176,12 +179,15 @@ shm_segment GetSegmentFromPool()
     }
 }
 
-void PutSegmentBackInPool(shm_segment* segment)
+void PutSegmentBackInPool(shm_segment origSegment)
 {
-    printf("Put memory segment back in pool...\n");
+    shm_segment *segment = malloc(sizeof(shm_segment));
+    segment->SharedMemoryID = origSegment.SharedMemoryID;
+    segment->SegmentSize = origSegment.SegmentSize;
     pthread_mutex_lock(&_segmentQueueLock);
     steque_enqueue(_segmentQueue, segment);
     pthread_mutex_unlock(&_segmentQueueLock);
+    printf("Memory segment SHMID:%d back in pool successfully...\n", segment->SharedMemoryID);
 }
 
 cache_status WaitForRequestResponse(cache_status_request *request)
@@ -245,11 +251,12 @@ size_t WriteContentToClient(gfcontext_t *ctx, cache_status_request *request, shm
 ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
 {
     printf("Handling with cache...\n");
-    DEBUG(V_LOW, "TEST");
+//    DEBUG(V_LOW, "TEST");
 
+    shm_segment shmSegment = GetSegmentFromPool();
     cache_status_request request;
     request.mtype = GetRequestID();
-    request.SharedSegment = GetSegmentFromPool();
+    request.SharedSegment = shmSegment;
 
     printf("SHMID: %d\n", request.SharedSegment.SharedMemoryID);
     strncpy(request.Path, path, MAX_FILE_PATH_LENGTH);
@@ -288,7 +295,6 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
                 size_t sentBytes = WriteContentToClient(ctx, &request, sharedContainer, fileSize - total_transferred);
                 total_transferred += sentBytes;
                 printf("Sent %ld, %ld of %ld bytes\n", sentBytes, total_transferred, fileSize);
-                printf("With %ld bytes left over\n", strlen(&(sharedContainer->Data[sentBytes])));
             }
 
             sem_post(&sharedContainer->SharedSemaphore);
@@ -297,16 +303,15 @@ ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg)
         printf("Sent %ld of %ld bytes\n", total_transferred, fileSize);
 
         sharedContainer->Status = INITIALIZED;
+        sharedContainer->Size = 0;
         DetachFromSharedMemorySegment(sharedContainer);
     }
     else
     {
-        // Initiate file transfer from server using curl
-        printf("Response - [Path: %s] not found in cache.\n", request.Path);
-        return gfs_sendheader(ctx, GF_FILE_NOT_FOUND, 0);
+    	handle_with_curl(ctx, path, arg);
     }
 
-    PutSegmentBackInPool(&(request.SharedSegment));
+    PutSegmentBackInPool(shmSegment);
 
     return fileSize;
 }

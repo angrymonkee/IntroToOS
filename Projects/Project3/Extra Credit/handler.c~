@@ -22,6 +22,7 @@ int _threadsAlive = 1;
 void ProcessRequests(int *threadID);
 
 extern ssize_t handle_with_cache(gfcontext_t *ctx, char *path, void* arg);
+extern ssize_t handle_with_curl(gfcontext_t *ctx, char *path, void* arg);
 
 typedef struct request_context_t
 {

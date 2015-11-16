@@ -6,14 +6,14 @@
 
 #include "shm_channel.h"
 
-int CreateSharedMemorySegment(int segmentSize)
+int CreateSharedMemorySegment(int segmentSize, int projectID)
 {
     printf("In CreateSharedMemorySegment\n");
 
     key_t key;
     int shmid = 0;
 
-    if ((key = ftok("shm_channel.c", 'A')) == -1)
+    if ((key = ftok("shm_channel.c", projectID)) == -1)
     {
         perror("ftok");
         exit(1);

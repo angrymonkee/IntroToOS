@@ -7,10 +7,10 @@ endif
 
 all: gfserver_main gfclient_download
 
-gfserver_main: gfserver.o handler.o gfserver_main.o content.o steque.o handle_with_cache.o handle_with_curl.o shm_channel.o
+gfserver_main: gfserver.o handler.o gfserver_main.o content.o steque.o
 	$(CC) -o $@ $(CFLAGS) $(CURL_CFLAGS) $^ $(LDFLAGS) $(CURL_LIBS)
 
-gfclient_download: gfclient.o workload.o gfclient_download.o steque.o simplecache.o simplecached.o shm_channel.o
+gfclient_download: gfclient.o workload.o gfclient_download.o steque.o
 	$(CC) -o $@ $(CFLAGS) $^ $(LDFLAGS)
 
 .PHONY: clean
