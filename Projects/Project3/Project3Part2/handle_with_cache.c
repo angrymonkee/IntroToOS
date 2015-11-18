@@ -179,7 +179,7 @@ shm_segment GetSegmentFromPool()
 
 void PutSegmentBackInPool(shm_segment origSegment)
 {
-    shm_segment *segment = malloc(sizeof(shm_segment));
+    shm_segment *segment = malloc(sizeof(shm_segment) + origSegment.SegmentSize);
     segment->SharedMemoryID = origSegment.SharedMemoryID;
     segment->SegmentSize = origSegment.SegmentSize;
     pthread_mutex_lock(&_segmentQueueLock);

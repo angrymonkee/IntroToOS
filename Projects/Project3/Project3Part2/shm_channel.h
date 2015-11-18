@@ -1,7 +1,5 @@
 #include <semaphore.h>
 
-#define SHM_SIZE 1024
-
 typedef struct shm_segment
 {
     int SharedMemoryID;
@@ -19,7 +17,6 @@ typedef enum shm_response_status
 
 typedef struct shm_data_transfer
 {
-//    char Data[SHM_SIZE];
     shm_response_status Status;
     sem_t SharedSemaphore;
     size_t Size;

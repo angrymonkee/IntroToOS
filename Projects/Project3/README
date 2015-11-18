@@ -1,3 +1,12 @@
+Project #3
+Daniel Jones
+Introduction to Operating Systems
+
+Credit to:
+Beej's Guide to Unix IPC
+http://beej.us/guide/bgipc/output/html/multipage/index.html
+
+
 Proxy-Cache Implementation Explaination
 
 	The proxy-cache design is used to efficiently serve files which have 
@@ -96,7 +105,4 @@ Procedure Walk-Through:
 
 
 Known Issues:
-1. Currently, I have only been able to process successfully when the memory size is set to 1024. This limitation was not discovered until the last minute so I have not had the opportunity to make the required adjustments to resolve this issue.
-
-
 
