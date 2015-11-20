@@ -1,0 +1,72 @@
+# depslib dependency file v1.0
+1447986138 source:/home/dan/Code/IntoToOS/Projects/Project4/magickminify.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	"magick/MagickCore.h"
+
+1436899635 source:/home/dan/Code/IntoToOS/Projects/Project4/magickminify_test.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<pthread.h>
+	"magick/MagickCore.h"
+
+1447987990 source:/home/dan/Code/IntoToOS/Projects/Project4/minify_via_rpc.c
+	<stdlib.h>
+	<stdio.h>
+	"minifyjpeg_xdr.c"
+	"minifyjpeg_clnt.c"
+
+1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
+	"minifyjpeg.h"
+
+1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.h
+	<rpc/rpc.h>
+	<pthread.h>
+
+1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
+	<memory.h>
+	"minifyjpeg.h"
+
+1447994223 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
+	<memory.h>
+	"minifyjpeg.h"
+
+1436898445 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_main.c
+	<stdio.h>
+	<stdlib.h>
+	<getopt.h>
+	<pthread.h>
+	<rpc/rpc.h>
+	"steque.h"
+
+1426369740 /home/dan/Code/IntoToOS/Projects/Project4/steque.h
+
+1447994223 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_svc.c
+	"minifyjpeg.h"
+	<stdio.h>
+	<stdlib.h>
+	<rpc/pmap_clnt.h>
+	<string.h>
+	<memory.h>
+	<sys/socket.h>
+	<netinet/in.h>
+
+1447994223 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
+	"minifyjpeg.h"
+
+1426369740 source:/home/dan/Code/IntoToOS/Projects/Project4/steque.c
+	<stdlib.h>
+	<stdio.h>
+	"steque.h"
+
+1447993998 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.c
+	<stdio.h>
+	<stdlib.h>
+	"minifyjpeg.h"
+	"magickminify.h"
+
+1426108363 /home/dan/Code/IntoToOS/Projects/Project4/magickminify.h
+	<stdlib.h>
+

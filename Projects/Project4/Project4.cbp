@@ -31,9 +31,40 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
-		<Unit filename="main.c">
+		<Unit filename="Makefile" />
+		<Unit filename="magickminify.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="magickminify.h" />
+		<Unit filename="magickminify_test.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minify_via_rpc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minifyjpeg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minifyjpeg.h" />
+		<Unit filename="minifyjpeg.x" />
+		<Unit filename="minifyjpeg_clnt.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minifyjpeg_main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minifyjpeg_svc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="minifyjpeg_xdr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="paraglider.jpg" />
+		<Unit filename="steque.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="steque.h" />
+		<Unit filename="workload.txt" />
 		<Extensions>
 			<code_completion />
 			<debugger />

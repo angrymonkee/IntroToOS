@@ -17,10 +17,7 @@ extern "C" {
 
 struct image_descriptor {
 	long Size;
-	struct {
-		u_int Buffer_len;
-		char *Buffer_val;
-	} Buffer;
+	char *Buffer;
 };
 typedef struct image_descriptor image_descriptor;
 
@@ -28,15 +25,15 @@ typedef struct image_descriptor image_descriptor;
 #define COMPRESS_VERS 1
 
 #if defined(__STDC__) || defined(__cplusplus)
-#define CompressImage 1
-extern  enum clnt_stat compressimage_1(image_descriptor , image_descriptor *, CLIENT *);
-extern  bool_t compressimage_1_svc(image_descriptor , image_descriptor *, struct svc_req *);
+#define Compress_Image 1
+extern  enum clnt_stat compress_image_1(image_descriptor , image_descriptor *, CLIENT *);
+extern  bool_t compress_image_1_svc(image_descriptor , image_descriptor *, struct svc_req *);
 extern int minify_prog_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
-#define CompressImage 1
-extern  enum clnt_stat compressimage_1();
-extern  bool_t compressimage_1_svc();
+#define Compress_Image 1
+extern  enum clnt_stat compress_image_1();
+extern  bool_t compress_image_1_svc();
 extern int minify_prog_1_freeresult ();
 #endif /* K&R C */
 

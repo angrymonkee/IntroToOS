@@ -10,10 +10,10 @@
 static struct timeval TIMEOUT = { 25, 0 };
 
 enum clnt_stat 
-compressimage_1(image_descriptor imgDescriptor, image_descriptor *clnt_res,  CLIENT *clnt)
+compress_image_1(image_descriptor arg1, image_descriptor *clnt_res,  CLIENT *clnt)
 {
-	return (clnt_call(clnt, CompressImage,
-		(xdrproc_t) xdr_image_descriptor, (caddr_t) &imgDescriptor,
+	return (clnt_call(clnt, Compress_Image,
+		(xdrproc_t) xdr_image_descriptor, (caddr_t) &arg1,
 		(xdrproc_t) xdr_image_descriptor, (caddr_t) clnt_res,
 		TIMEOUT));
 }

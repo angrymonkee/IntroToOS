@@ -32,7 +32,7 @@ void* magickminify(void* src, ssize_t src_len, ssize_t* dst_len){
     exit(1);
 
   ans = ImageToBlob(&image_info, resize, &len, exception);
-  
+
   if(dst_len != NULL)
     *dst_len = len;
 

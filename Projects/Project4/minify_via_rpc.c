@@ -3,9 +3,11 @@
 #include "minifyjpeg_xdr.c"
 #include "minifyjpeg_clnt.c"
 
+// Client-side code
+
 CLIENT* get_minify_client(char *server)
 {
-    CLIENT cl = clnt_create(server, MINIFY_PROG, COMPRESS_VERS, "tcp");
+    CLIENT *cl = clnt_create(server, MINIFY_PROG, COMPRESS_VERS, "tcp");
 
     if (cl == NULL)
     {
@@ -17,46 +19,17 @@ CLIENT* get_minify_client(char *server)
     return cl;
 }
 
-
 void* minify_via_rpc(CLIENT *cl, void* src_val, size_t src_len, size_t *dst_len)
 {
+    image_descriptor descriptor;
+    descriptor.Size = src_len;
+    descriptor.Buffer = src_val;
 
-	/*Your code here */
+    image_descriptor *result = malloc(sizeof(image_descriptor));
 
-    image_descriptor imgDescriptor;
-    imgDescriptor.Size = src_len;
-    imgDescriptor.Buffer_val = src_val;
+    compress_image_1(descriptor, result, cl);
 
+    *dst_len = result->Size;
 
-    /*
-     * Call the remote procedure "printmessage" on the server.
-     */
-    result = printmessage_1(&message, cl);
-    if (result == NULL) {
-        /*
-         * An error occurred while calling the server.
-         * Print error message and die
-         */
-        clnt_perror(cl, server);
-        exit(1);
-    }
-    /*
-     * Okay, we successfully called the remote procedure
-     */
-    if (*result == 0) {
-        /*
-         * Server was unable to print our message.
-         * Print error message and die.
-         */
-        fprintf(stderr, "%s: %s couldn't print your message\n",
-        argv[0], server);
-        exit(1);
-    }
-    /*
-     * Message got printed at server
-     */
-     printf("Message delivered to %s!\n", server);
-     exit(0);
-
-
+    return result->Buffer;
 }

@@ -12,8 +12,7 @@ xdr_image_descriptor (XDR *xdrs, image_descriptor *objp)
 
 	 if (!xdr_long (xdrs, &objp->Size))
 		 return FALSE;
-	 if (!xdr_array (xdrs, (char **)&objp->Buffer.Buffer_val, (u_int *) &objp->Buffer.Buffer_len, 200,
-		sizeof (char), (xdrproc_t) xdr_char))
+	 if (!xdr_string (xdrs, &objp->Buffer, 4096))
 		 return FALSE;
 	return TRUE;
 }
