@@ -1,5 +1,5 @@
 /*
- * Complete this file and run rpcgen -MN minifyjpeg.x
+ * Complete this file and run rpcgen -CMN minifyjpeg.x
  */
 
 
@@ -7,7 +7,7 @@
 struct image_descriptor
 {
     long Size;
-    string Buffer<4096>;
+    opaque Buffer<>;
 };
 
 program MINIFY_PROG {

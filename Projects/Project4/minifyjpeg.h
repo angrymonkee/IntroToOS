@@ -15,9 +15,13 @@ extern "C" {
 #endif
 
 
+
 struct image_descriptor {
 	long Size;
-	char *Buffer;
+	struct {
+		u_int Buffer_len;
+		char *Buffer_val;
+	} Buffer;
 };
 typedef struct image_descriptor image_descriptor;
 

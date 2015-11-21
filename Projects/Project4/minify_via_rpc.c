@@ -23,7 +23,8 @@ void* minify_via_rpc(CLIENT *cl, void* src_val, size_t src_len, size_t *dst_len)
 {
     image_descriptor descriptor;
     descriptor.Size = src_len;
-    descriptor.Buffer = src_val;
+    descriptor.Buffer.Buffer_len = src_len;
+    descriptor.Buffer.Buffer_val = src_val;
 
     image_descriptor *result = malloc(sizeof(image_descriptor));
 
@@ -31,5 +32,5 @@ void* minify_via_rpc(CLIENT *cl, void* src_val, size_t src_len, size_t *dst_len)
 
     *dst_len = result->Size;
 
-    return result->Buffer;
+    return result->Buffer.Buffer_val;
 }

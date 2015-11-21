@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1447986138 source:/home/dan/Code/IntoToOS/Projects/Project4/magickminify.c
+1448076780 source:/home/dan/Code/IntoToOS/Projects/Project4/magickminify.c
 	<stdio.h>
 	<stdlib.h>
 	<string.h>
@@ -12,20 +12,20 @@
 	<pthread.h>
 	"magick/MagickCore.h"
 
-1447987990 source:/home/dan/Code/IntoToOS/Projects/Project4/minify_via_rpc.c
+1448078734 source:/home/dan/Code/IntoToOS/Projects/Project4/minify_via_rpc.c
 	<stdlib.h>
 	<stdio.h>
 	"minifyjpeg_xdr.c"
 	"minifyjpeg_clnt.c"
 
-1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
+1448077616 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
 	"minifyjpeg.h"
 
-1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.h
+1448078677 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.h
 	<rpc/rpc.h>
 	<pthread.h>
 
-1447994223 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
+1448077616 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
 	<memory.h>
 	"minifyjpeg.h"
 

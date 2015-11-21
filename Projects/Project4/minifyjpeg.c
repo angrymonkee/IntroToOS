@@ -14,7 +14,9 @@ bool_t compress_image_1_svc(image_descriptor descriptor, image_descriptor *resul
 {
     printf("In Compress_Image_1 Server RPC call...\n");
 
-    result->Buffer = magickminify(descriptor.Buffer, descriptor.Size, &(result->Size));
+    result->Buffer.Buffer_val = magickminify(descriptor.Buffer.Buffer_val, descriptor.Size, &(result->Size));
+    result->Buffer.Buffer_len = result->Size;
 
+    printf("compression done..\n");
     return 1;
 }

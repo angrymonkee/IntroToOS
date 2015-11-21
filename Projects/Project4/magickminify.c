@@ -18,14 +18,15 @@ void* magickminify(void* src, ssize_t src_len, ssize_t* dst_len){
   exception = AcquireExceptionInfo();
 
   image = BlobToImage(&image_info, src, src_len, exception);
-
+printf("get image info\n");
   if (exception->severity != UndefinedException)
     CatchException(exception);
   if (image == (Image *) NULL)
     exit(1);
 
+printf("shrinking image..\n");
   resize = MinifyImage(image, exception);
-
+printf("image shrunk..\n");
   if (exception->severity != UndefinedException)
     CatchException(exception);
   if (image == (Image *) NULL)
