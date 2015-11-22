@@ -45,25 +45,25 @@ static void* read_from_file(char* filename, size_t *len){
 
   /* open an existing file for reading */
   infile = fopen(filename, "r");
-   
+
   /* quit if the file does not exist */
   if(infile == NULL){
     fprintf(stderr, "Unable to open the file %s", filename);
     exit(EXIT_FAILURE);
   }
-   
+
   /* Get the number of bytes */
   fseek(infile, 0L, SEEK_END);
   file_len = ftell(infile);
-   
-  /* reset the file position indicator to 
+
+  /* reset the file position indicator to
   the beginning of the file */
-  fseek(infile, 0L, SEEK_SET);  
-   
-  /* grab sufficient memory for the 
+  fseek(infile, 0L, SEEK_SET);
+
+  /* grab sufficient memory for the
   buffer to hold the text */
-  buffer = (char*)malloc(file_len); 
-   
+  buffer = (char*)malloc(file_len);
+
   /* memory error */
   if(buffer == NULL){
     fprintf(stderr, "Failed to allocate memory for %s\n", filename);
@@ -83,7 +83,7 @@ static int write_to_file(char* filename, void *data, ssize_t len){
 
   /* open an existing file for reading */
   outfile = fopen(filename, "w");
-   
+
   /* quit if the file does not exist */
   if(outfile == NULL)
     return 1;
@@ -103,7 +103,9 @@ static void *worker_main(void *arg){
   pthread_mutex_lock(&mutex);
   while(!steque_isempty(&queue)){
     request = steque_pop(&queue);
-    pthread_mutex_unlock(&mutex); 
+    pthread_mutex_unlock(&mutex);
+
+    printf("Input file name: %s\n", request->inputfilename);
 
     src_val = read_from_file(request->inputfilename, &src_len);
 
@@ -117,7 +119,7 @@ static void *worker_main(void *arg){
 
     pthread_mutex_lock(&mutex);
   }
-  pthread_mutex_unlock(&mutex); 
+  pthread_mutex_unlock(&mutex);
 
   return NULL;
 }
@@ -128,16 +130,16 @@ static void *worker_main(void *arg){
 "options:\n"                                                                  \
 "  -s [server_addr]    Server address (Default: localhost)\n"                  \
 "  -t [nthreads]       Number of threads (Default: 1)\n"                  \
-"  -h                  Show this help message\n"                              
+"  -h                  Show this help message\n"
 
 static void Usage() {
   fprintf(stderr, "%s", USAGE);
 }
 
 static struct option gLongOptions[] = {
-  {"server",        required_argument,      NULL,           's'}, 
+  {"server",        required_argument,      NULL,           's'},
   {"workload",      required_argument,      NULL,           'w'},
-  {"nthreads",      required_argument,      NULL,           't'},           
+  {"nthreads",      required_argument,      NULL,           't'},
   {"help",          no_argument,            NULL,           'h'},
   {NULL,            0,                      NULL,             0}
 };
@@ -154,19 +156,19 @@ int main(int argc, char* argv[]){
   // Parse and set command line arguments
   while ((option_char = getopt_long(argc, argv, "s:w:t:h", gLongOptions, NULL)) != -1){
     switch (option_char) {
-      case 's': // server
+      case 's':
         server = optarg;
         break;
-      case 'w': // server
+      case 'w':
         workload = optarg;
         break;
-      case 't': // server
+      case 't':
         nthreads = atoi(optarg);
         break;
       case 'h': // help
         Usage();
         exit(0);
-        break;                      
+        break;
       default:
         Usage();
         exit(1);

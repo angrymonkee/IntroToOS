@@ -1,1 +1,5 @@
 paraglider.jpg paraglider_small.jpg
+Robot.png Robot_small.png
+Instagram.jpg Instagram_small.jpg
+dragon.jpg dragon_small.jpg
+space.jpg space_small.jpg

@@ -1,0 +1,3 @@
+paraglider.jpg paraglider_small.jpg
+Robot.png Robot_small.png
+Instagram.jpg Instagram_small.jpg
