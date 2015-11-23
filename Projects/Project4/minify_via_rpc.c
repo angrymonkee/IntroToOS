@@ -35,5 +35,8 @@ void* minify_via_rpc(CLIENT *cl, void* src_val, size_t src_len, size_t *dst_len)
     printf("result image size %ld\n", result->Size);
     *dst_len = result->Size;
 
-    return result->Buffer.Buffer_val;
+
+    char *retBuffer = result->Buffer.Buffer_val;
+    free(result);
+    return retBuffer;
 }
