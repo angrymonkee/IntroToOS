@@ -24,5 +24,5 @@ minifyjpeg_svc: minifyjpeg_svc.o  minifyjpeg_xdr.o minifyjpeg.o magickminify.o s
 
 #### Cleanup ####
 clean:
-	rm -f *.o magickminify_test minifyjpeg_main minifyjpeg_svc 
+	rm -f *.o magickminify_test minifyjpeg_main minifyjpeg_svc
 

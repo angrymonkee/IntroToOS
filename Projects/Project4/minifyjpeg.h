@@ -15,7 +15,6 @@ extern "C" {
 #endif
 
 
-
 struct image_descriptor {
 	long Size;
 	struct {

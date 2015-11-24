@@ -6,7 +6,9 @@
 // Server-side functions here
 int minify_prog_1_freeresult (SVCXPRT * transp, xdrproc_t xdr_result, caddr_t result)
 {
+    printf("Freeing result\n");
 	(void) xdr_free(xdr_result, result);
+	printf("Result freed\n");
 	return 1;
 }
 

@@ -15,6 +15,9 @@ CLIENT* get_minify_client(char *server)
         clnt_pcreateerror(server);
         exit(1);
     }
+
+    clnt_control(cl, CLSET_TIMEOUT, "60");
+
     printf("Client created successfully...\n");
     return cl;
 }
