@@ -9,8 +9,7 @@
 /* Default timeout can be changed using clnt_control() */
 static struct timeval TIMEOUT = { 25, 0 };
 
-enum clnt_stat 
-compress_image_1(image_descriptor arg1, image_descriptor *clnt_res,  CLIENT *clnt)
+enum clnt_stat compress_image_1(image_descriptor arg1, image_descriptor *clnt_res,  CLIENT *clnt)
 {
 	return (clnt_call(clnt, Compress_Image,
 		(xdrproc_t) xdr_image_descriptor, (caddr_t) &arg1,

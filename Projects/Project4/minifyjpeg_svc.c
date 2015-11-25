@@ -16,8 +16,7 @@
 #define SIG_PF void(*)(int)
 #endif
 
-int
-_compress_image_1 (image_descriptor  *argp, void *result, struct svc_req *rqstp)
+int _compress_image_1 (image_descriptor  *argp, void *result, struct svc_req *rqstp)
 {
 	return (compress_image_1_svc(*argp, result, rqstp));
 }

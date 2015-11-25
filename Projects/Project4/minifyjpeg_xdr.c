@@ -8,7 +8,7 @@
 bool_t
 xdr_image_descriptor (XDR *xdrs, image_descriptor *objp)
 {
-	register int32_t *buf;
+//	register int32_t *buf;
 
 	 if (!xdr_long (xdrs, &objp->Size))
 		 return FALSE;

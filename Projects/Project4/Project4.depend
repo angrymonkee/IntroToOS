@@ -12,28 +12,29 @@
 	<pthread.h>
 	"magick/MagickCore.h"
 
-1448078734 source:/home/dan/Code/IntoToOS/Projects/Project4/minify_via_rpc.c
+1448422847 source:/home/dan/Code/IntoToOS/Projects/Project4/minify_via_rpc.c
 	<stdlib.h>
 	<stdio.h>
+	<string.h>
 	"minifyjpeg_xdr.c"
 	"minifyjpeg_clnt.c"
 
-1448077616 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
+1448418849 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
 	"minifyjpeg.h"
 
-1448333307 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.h
+1448342287 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.h
 	<rpc/rpc.h>
 	<pthread.h>
 
-1448077616 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
+1448419299 /home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
 	<memory.h>
 	"minifyjpeg.h"
 
-1448334743 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
+1448419299 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_clnt.c
 	<memory.h>
 	"minifyjpeg.h"
 
-1448165479 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_main.c
+1448339319 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_main.c
 	<stdio.h>
 	<stdlib.h>
 	<getopt.h>
@@ -43,7 +44,7 @@
 
 1426369740 /home/dan/Code/IntoToOS/Projects/Project4/steque.h
 
-1448333307 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_svc.c
+1448416422 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_svc.c
 	"minifyjpeg.h"
 	<stdio.h>
 	<stdlib.h>
@@ -53,7 +54,7 @@
 	<sys/socket.h>
 	<netinet/in.h>
 
-1448333307 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
+1448418849 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg_xdr.c
 	"minifyjpeg.h"
 
 1426369740 source:/home/dan/Code/IntoToOS/Projects/Project4/steque.c
@@ -61,7 +62,7 @@
 	<stdio.h>
 	"steque.h"
 
-1448332016 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.c
+1448422242 source:/home/dan/Code/IntoToOS/Projects/Project4/minifyjpeg.c
 	<stdio.h>
 	<stdlib.h>
 	"minifyjpeg.h"
