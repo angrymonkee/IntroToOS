@@ -1,0 +1,387 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2015-10-04T22:40:33-04:00
+
+====== P3L1: Scheduling ======
+
+OS Scheduler - Schedules work in the OS
+
+**FIFO/FCFS - First Come First Serve**
+     Simple, assigns tasks immediately
+     Less overhead managing the order of tasks
+
+**SJF - Shortest Job First**
+    Shortest/simplest jobs run first
+    Maximizes throughput
+    Overhead when inserting new jobs due to sort or rebalance order
+    
+**Complex tasks first**
+    Maximizes utilization of hardware (CPU, devices, memory, etc..)
+
+**CPU Scheduler**
+    Decides **HOW** and **WHEN** processes/threads access shared CPUs
+    Schedules bother USER and KERNEL level tasks
+
+{{./screenshot_2015-10-06-221514.png}}
+
+{{./screenshot_2015-10-12-180551.png}}
+
+**Run-to-Completion Scheduling**
+	Assume:
+		Groups of tasks/jobs
+		Known execution times
+		No preemption
+	Metrics:
+		Throughput
+		Average job completion time
+		Average job wait time
+		CPU utilization
+
+**Run-to-Completion: FCFS Scheduler**
+//T1=1s, T2=10s, T3=1s//
+	
+	**Throughput** = 3 / 12 = .25 tasks/s
+	**Avg. Complete Time** = (1 + 11 + 12) / 3 = 8 sec
+	**Avg. Wait Time** = (0 + 1 + 11) / 3 = 4 sec
+
+**Run-to-Completion: SJF Scheduler**
+//T1=1s, T3=1s, T2=10s//
+	
+	**Throughput** = 3 / 12 = .25 tasks/s
+	**Avg. Complete Time** = (1 + 11 + 12) / 3 = 8 sec
+	**Avg. Wait Time** = (0 + 1 + 11) / 3 = 4 sec
+
+
+**Premptive Scheduling: SJF + Preempt**
+	Time slices initiate a signal which allows the schedule to reevaluate which task should be up next.
+	Shortest tasks take priority
+
+{{./screenshot_2015-10-06-222117.png}}
+
+
+**Preemptive Scheduling: Priority Scheduling**
+	Tasks have different priority levels (run highest priority)
+
+{{./screenshot_2015-10-06-222850.png}}
+
+
+Scheduler will need to assess what is the priority....
+
+{{./screenshot_2015-10-12-183401.png}}
+
+			***** DANGER STARVATION IS A PROBLEM *****
+
+"**Priority Aging**" is used to prevent starvation by making priority a function of actual priority and time spent in the run queue.
+
+	__priority = f( actual priority, time in run queue )__
+
+
+**Priority Inversion**
+When higher priority task needs a resource that is being held by a lower priority task. In this case, the lower priority task will be escalated (**boosted**) to the same priority as the higher level task so that the resource can be released more quickly and given to the higher level task. After the resource is release to the higher level task the lower level task's priority is lowered again.
+
+{{./screenshot_2015-10-12-185232.png?type=None}}
+
+
+**Round Robin Scheduling**
+
+No Priority
+{{./screenshot_2015-10-12-185630.png}}
+
+The scheduler will __run same priority tasks in increments__ unless one of the tasks is blocked waiting on a job.
+
+
+With Priorities
+{{./screenshot_2015-10-12-185942.png}}
+
+
+With Interleaving (Time slicing)
+
+{{./screenshot_2015-10-12-190057.png}}
+
+
+**Time Slice** - Maximum amount of uninterrupted time given to a task => **Time Quantum**
+	- A task may run less than the time slice (wait on I/O and placed back on the queue) 
+	- Higher priority task runnable
+	__Results in: timesharing the CPU__
+
+{{./screenshot_2015-10-12-191111.png}}
+
+
+
+**How long should a time slice be???**
+
+
+
+**CPU-Bound Tasks (larger time slices)**
+{{./screenshot_2015-10-12-191754.png}}
+
+
+Timeslice = 1 second
+	throughput = 2 / (10 + 10 + 19*0.1) = 0.091 tasks/second
+	avg. wait time = (0 + (1+0.1)) / 2 = 0.55 seconds
+	avg. comp. time = 21.35 seconds
+Timeslice = 5 seconds
+	throughput = 2 / (10 + 10 + 3*0.1) = 0.098 tasks/second
+	avg. wait time = (0 + (5+0.1)) / 2 = 3.05 seconds
+	avg. comp. time = 17.75 seconds
+Timeslice = ∞
+	throughput = 2 / (10 + 10) = 0.1 tasks/second
+	avg. wait time = (0 + (10)) / 2 = 5 seconds
+	avg. comp. time = (10 + 20)/2 = 15 seconds
+
+__** Note: Better to choose larger time slices for CPU bound tasks, because they do not interact with the user and go unnoticed.__
+
+**I/O-Bound Tasks (smaller time slices)**
+{{./screenshot_2015-10-12-192516.png}}
+
+for Timeslice = 1sec
+	avg. comp. time = (21.9 + 20.8) / 2 = 21.35
+
+Timeslice = 5 seconds
+	throughput = 2 / 24.3 = 0.082 tasks/second
+	avg. wait time = 5.1 / 2 = 2.55 seconds
+	avg. comp. time = (11.2 + 24.3) / 2 = 17.75 seconds
+
+__** Note: Smaller time slices keep the operator happy as the system is able to respond more quickly to requests.__
+
+
+**Summary:**
+
+CPU-Bound tasks - **longer** **timeslices**
+	- limits context switching overhead
+	- keeps CPU utilization and throughput high
+
+I/O-Bound tasks - **shorter** **timeslices**
+	- can issue I/O operations earlier
+	- keeps CPU and device utilization high
+	- better user perceived performance
+
+
+
+CPU Utilization Formula:
+
+**[cpu_running_time / (cpu_running_time + context_switching_overheads)] * 100**
+
+timeslice/running_time = **1ms**
+overhead = **0.1ms**
+
+10 I/O task __1ms__ each slice
+1 CPU task __1ms__ each slice
+__1__ / (__1__ + 0.1ms) = .91 * 100 = 91%
+
+
+
+timeslice/running_time = **10ms**
+overhead = **0.1ms**
+
+10 I/O tasks __1ms__ each (preempt timeslice)
+1 CPU task __10ms__ each slice
+
+(__10 * 1ms__) + (__1 * 10ms__)
+______________________________________________________    = 95%
+((__10ms * 1__) + (10 * 0.1ms)) + ((__1 * 10ms__) + (1 * 0.1ms)))
+
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+io - 1
+cpu - 10
+
+
+
+
+**Runqueue Data Structures**
+
+{{./screenshot_2015-10-17-202400.png}}
+
+
+**Multi-queue Data Structure**
+
+{{./screenshot_2015-10-17-202546.png}}
+
+
+__??? How do we know if a task is CPU or I/O intensive ???__
+
+Let's try gathering a history of tasks...
+
+
+**Multi-Level Feedback Queue (Fernando Corbato - Turing Award Winner)**
+
+1. Expect that **every new task is at the highest priority** (I/0 intensive)
+2. If the **task ends before the timeslice expires** then we are **good**!
+3. If **timeslice expires before the task completes**, then more CPU intensive. Needs to **move down**.
+4. If task at lower level and **finishes before timeslice expires** then priority will get a **boost**
+
+{{./screenshot_2015-10-17-203321.png}}
+
+
+
+**LINUX O(1) Scheduler**
+
+1. O(1) - Constant time select and add tasks regardless of task count.
+2. 140 priority levels from 0-139 where 0 is highest and 139 is lowest
+	a. 0-99 - Real-time tasks
+	b. 100-139 - timesharing tasks
+		1. Userprocesses default to priority level 120 and can vary by "nice value"
+			a. Nice value (-20 to 19)
+
+{{./screenshot_2015-10-17-204652.png}}
+
+{{./screenshot_2015-10-17-210231.png}}
+
+Smallest timeslice for low priority tasks
+Larger timeslice for high priority tasks
+
+Feedback:
+If task spends **longer time sleeping** then it is more interactive and need to **increase priority** (-5 to priority level)
+If task spends **less time sleeping** the it is more CPU intensive and need to **decrease priority** (+5 to priority level)
+
+
+
+O(1) Runqueue - 2 arrays of tasks
+	Active: Primary list that scheduler picks to run next
+		- Add - Indexes into array, based on priority, then enqueues task
+		- Select - Gets first set bit in sequence of bits representing priority level, then dequeues first task
+		__- If task gives up the CPU before the timeslice expires (due to higher priority task needing to run or waiting on some process to finish) then it goes back on the "active array" task list. ONLY if the timeslice expires before the task is complete does it get placed on the "expired array" task list.__
+	Expired: Inactive list
+		- Only begins processing tasks in list once active list is empty
+		- serves as an aging mechanism
+
+{{./screenshot_2015-10-17-212404.png}}
+
+
+Problems:
+	- Expired tasks won't be scheduled until active list is done so **BAD PERFORMANCE**
+	- Not guaranteed to be fair to all tasks
+
+
+
+**Linux Completely Fair Scheduler (CFS)**
+
+Runqueue = Red-Black Tree
+	- order by "virtual runtime" (time spent on CPU)
+
+Nodes in tree work on the simple principle that:
+	**Left** of node is **less** time on the CPU
+	**Right** of node is **more** time on the CPU
+
+CFS scheduling
+	- Left most node
+	- Periodically adjusts the virtual runtime of a node by comparing it to the runtime of left most node in the tree.
+		- If smaller keep running
+		- If larger, preempt and balance tree
+
+	- Lower priority tasks will increase their runtime at a faster rate, therefore will get less time on the CPU.
+	- High priority tasks will increase their runtime at a lower rate, therefore will get more time on the CPU.
+
+{{./screenshot_2015-10-17-215133.png?type=None}}
+
+__** NOTE: This approach allows all tasks, regardless of priority, to run in the same task queue structure.__
+
+Performance: 
+	- Select task = O(1)
+	- Add task = O(log N)
+
+{{./screenshot_2015-10-17-215018.png}}
+
+
+**Scheduling on Multi-CPU Systems**
+
+{{./screenshot_2015-10-17-215447.png}}
+
+
+{{./screenshot_2015-10-17-215713.png}}  {{./screenshot_2015-10-17-215818.png}}
+
+If task is running on first CPU and running HOT, then is preempted and picked up by the second CPU it will now be running with a COLD cache and will need to load from memory at a performance cost.
+
+This means we want....
+
+
+****Cache-Affinity **- Keep tasks on the same CPU as much as possible
+
+{{./screenshot_2015-10-17-220206.png}}
+
+{{./screenshot_2015-10-17-220402.png}}
+
+**Non-Uniform Memory Access (NUMA)**
+Need to remember that accessing the "local" or closer memory node is faster than accessing the remote memory node. Therefore, we want to keep the tasks running on the CPU where their state is stored in the local memory node.
+
+
+**Hyperthreading (SMT)**
+
+Multiple hardware supported execution contexts
+Each hardware context appears as a first and second virtual CPU to the operating system
+
+{{./screenshot_2015-10-17-221222.png}}
+
+{{./screenshot_2015-10-17-221355.png}}
+
+It is faster to switch contexts in a hyperthreaded CPU because context switching from one set of registers to another is on the order of cycles where as memory loads are hundreds of cycles.
+
+**How do we schedule tasks in a Hyperthreading environment??**
+
+{{./screenshot_2015-10-17-221638.png}}
+
+
+{{./screenshot_2015-10-17-221908.png}}
+
+
+
+2 CPU Bound threads
+{{./screenshot_2015-10-17-222056.png}}
+
+
+2 Memory-Bound Threads
+{{./screenshot_2015-10-17-222215.png}}
+
+CPU and Memory Bound Threads
+{{./screenshot_2015-10-17-222332.png}}
+
+
+History to determine I/O vs CPU bound tasks
+
+{{./screenshot_2015-10-17-222633.png}}
+
+{{./screenshot_2015-10-17-222743.png}}
+
+__Use of hardware counters is necessary to learn about threads to gestimate the kinds of resources the thread needs.__
+
+{{./screenshot_2015-10-17-223025.png}}
+
+
+**Cycles Per Instruction (CPI) - Fedorova**
+Not good idea!
+{{./screenshot_2015-10-17-223237.png}}
+
+{{./screenshot_2015-10-17-223509.png}}
+
+{{./screenshot_2015-10-17-223544.png}}
+
+{{./screenshot_2015-10-17-223754.png}}
+
+
+{{./screenshot_2015-10-17-224002.png}}
+
+{{./screenshot_2015-10-17-224315.png}}
+
+Mixed threads are good when CPI values vary so widely but not so much when more realistic values are close together.
+
+Better to use LLC (Last Level Cache)
+
+
+
+
+
+
+
+
+
+
+
+

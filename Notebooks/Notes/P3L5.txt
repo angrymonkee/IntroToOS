@@ -1,0 +1,246 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2015-12-05T16:35:33-05:00
+
+====== P3L5: I/O Management ======
+
+All about managing inputs and outputs in systems. Similar to a shipping department.
+
+- Both have **protocols** for managing the I/O or shipping
+	(interfaces for I/O devices)
+- Both have **handlers** for overseeing the protocols
+	(devices drivers, interupt handlers, etc...)
+- Both **decouple** details from the core
+	(abstract I/O device details from the applications)
+
+{{./screenshot_2015-12-05-164420.png}}
+
+
+=== I/O Devices ===
+
+There are many input output devices that are integrated into OS
+
+{{./screenshot_2015-12-05-164615.png}}
+
+
+=== Basic I/O Device Features ===
+
+**Control** **Registers — **Can be accessed by CPU to control devices
+- command - control what is being done on the device
+- data transfer - to pass data into the device
+- status - status of what is happening on the device
+
+**Microcontroller** — devices CPU
+
+**On device memory**
+
+**Other logic **— Analog to digital converters
+
+{{./screenshot_2015-12-05-165112.png}}
+
+
+=== CPU Device Interconnect ===
+
+**** What connects the devices**
+
+PCI or PCI Buss - Peripheral Component Interconnect - Connects peripheral components
+PCIe - PCI Express
+
+{{./screenshot_2015-12-05-165558.png}}
+
+
+=== Device Drivers ===
+
+Device specific software components. One must be included in the OS for each control and they control all access and control of the device.
+
+{{./screenshot_2015-12-05-165901.png}}
+
+
+=== Types of Devices ===
+
+**Block Devices** (disk) — Operate on blocks of data and directly addressable
+**Character Devices** (keyboard) — serialized stream of character data
+**Nectwork Devices** — stream of data of different sizes
+
+{{./screenshot_2015-12-05-170155.png}}
+
+OS needs to represent the devices through specialized device files
+
+{{./screenshot_2015-12-05-170337.png}}
+
+{{./screenshot_2015-12-05-170423.png}}
+
+{{./screenshot_2015-12-05-170455.png}}
+
+
+
+=== CPU Device Interactions ===
+
+Devices accessable similar to the way CPU accesses memory. Registers look like memory registers at a different addresses to the CPU.
+
+{{./screenshot_2015-12-05-170853.png}}
+
+Memory Mapped I/O — How each devices registers are mapped to "memory" locations
+
+
+=== Path from Device to CPU ===
+
+**Interrupt** — Device sends interrupt to CPU
+**Polling **— CPU polls status register on device
+
+{{./screenshot_2015-12-05-171339.png}}
+
+
+=== Programmed I/O (PIO) ===
+
+{{./screenshot_2015-12-05-171658.png}}
+
+{{./screenshot_2015-12-05-171807.png}}
+
+
+=== Direct Memory Access (DMA) ===
+
+{{./screenshot_2015-12-05-171926.png}}
+
+{{./screenshot_2015-12-05-172117.png}}
+
+{{./screenshot_2015-12-05-172225.png}}
+
+{{./screenshot_2015-12-05-172323.png}}
+
+=== Typical Device Access ===
+
+Send data over wireless or read from file
+
+{{./screenshot_2015-12-05-172605.png}}
+
+
+=== OS Bypass ===
+
+****Not necessary to go through kernel, able to access the device directly from the user process**
+
+{{./screenshot_2015-12-05-173130.png}}
+
+
+=== Sync vs. Async Access ===
+
+{{./screenshot_2015-12-05-173252.png}}
+
+
+=== Block Devices ===
+
+Typically used for storage
+	Ex: File on the virtual file system
+	
+{{./screenshot_2015-12-05-173709.png}}
+
+{{./screenshot_2015-12-05-173824.png}}
+
+
+=== Virtual File System ===
+
+{{./screenshot_2015-12-05-173946.png}}
+
+Virtual File System hides details of the physical file system from applications
+
+{{./screenshot_2015-12-05-174156.png}}
+
+
+=== VFS Abstractions ===
+
+**File** - Elements the VFS operates
+**File Descriptor** - OS representation of file
+**inode** - Persistent representation of the file "index"
+**dentry** - directory entry
+**superblock**
+
+{{./screenshot_2015-12-05-174510.png}}
+
+
+=== VFS on Disk ===
+
+{{./screenshot_2015-12-05-174648.png}}
+
+
+=== Example: Ext2 Second Extended Filesystem ===
+
+{{./screenshot_2015-12-05-175024.png}}
+
+
+=== INodes ===
+
+Inodes identify files
+
+{{./screenshot_2015-12-05-175313.png}}
+**Very restrictive!!**
+
+**Enter Indirect Pointers!!**
+{{./screenshot_2015-12-05-175534.png}}
+
+{{./screenshot_2015-12-05-175638.png}}
+
+{{./screenshot_2015-12-05-175735.png}}
+
+
+=== File Access Overheads ===
+
+{{./screenshot_2015-12-05-180131.png}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

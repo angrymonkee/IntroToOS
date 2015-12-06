@@ -1,0 +1,170 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2015-12-01T21:01:29-05:00
+
+====== P3L3: Inter-Process Communication ======
+
+Processes need to be able to communicate with eachother in an operating system. There are many ways for processes to communicate. Some of the common mechanisms are as follows:
+
+Processes can **share memory, exchange messages** (sockets, message queue, etc..) and **synchronize** communication (locks, semaphores, etc...)
+
+{{./screenshot_2015-12-01-211405.png}}
+
+
+==== Inter-Process Communication (IPC) ====
+
+IPC = Mechanisms supported by the OS to facilitate interaction between processes.
+
+	 Coordination** and **Communication ****
+
+IPC Mechanisms:
+	**Message Passing** - sockets, pipes, message queues, etc...
+	**Memory Based IPC** - shared memory, memory mapped files, etc...
+	**Higher Level Semantics** - files, remote proceedure calls (RPC), etc...
+
+{{./screenshot_2015-12-01-212442.png}}
+
+
+==== Message Passing (IPC) ====
+
+Message passing is a simple mechanism supported by the Kernel to send/recv messags between processes. The Kernel provides a channel interfaces to the processes via a port.
+
+**+ Simple**
+**- Crossing into the kernel is time consuming**
+
+{{./screenshot_2015-12-01-212940.png}}
+
+{{./screenshot_2015-12-01-213018.png}}
+
+{{./screenshot_2015-12-01-213040.png}}
+
+
+==== Message Passing Types (Pipes, Message Queues, Sockets) ====
+
+=== Pipes ===
+
+Simplest - Just a stream of bytes pushed from one process and received by another. Common to pipe output from one process to the input of another.
+{{./screenshot_2015-12-01-213533.png}}
+
+
+=== Message Queues ===
+
+Messages are delivered between processes vai message queues.
+Messages can be **prioritized and scheduled**
+
+Sending process submits properly formatted message to the kernel channel, then channel will deliver properly formatted message to the receiver.
+{{./screenshot_2015-12-01-213608.png}}
+
+=== Sockets ===
+
+Processes send/recv messages by writing to a socket buffer on the kernel channel, then the channel can transmit the data to the socket buffer at the receiver location.
+
+{{./screenshot_2015-12-01-213742.png}}
+
+
+
+==== Shared Memory (IPC) ====
+
+****Processes read and write to a shared memory region**
+
+**+ Once communication is established the OS gets out of the way**
+**- Synchronization mechanisms are reqired**
+
+{{./screenshot_2015-12-01-214714.png}}
+{{./screenshot_2015-12-01-214925.png}}
+
+
+**IMPORTANT**
+
+**Messages vs Shared Memory**
+
+{{./screenshot_2015-12-01-215227.png}}Copy
+Copy
+	CPU cycles to copy data to/from port
+	
+Map
+	CPU cycles to map memory into address space
+	CPU to copy data to channel
+
+
+==== System V (System 5) Shared Memory Overview ====
+
+- "segments" of **shared memory may not be contiguous**
+- Shared memory is **system wide** and is persisted until it is **explicitly destroyed**
+
+{{./screenshot_2015-12-01-215735.png}}
+
+System wide means there is a limit on the total number of segments
+
+{{./screenshot_2015-12-01-215904.png}}
+{{./screenshot_2015-12-01-215934.png}}
+
+
+=== System V API ===
+
+**shmget** = create  — ftok = key for creation
+**shmat** = attach
+**shmdt** = detach
+**shmctl** = destroy
+
+{{./screenshot_2015-12-01-220303.png}}
+
+
+=== POSIX API ===
+
+**shm_open** = create
+**mmap** = attach
+**unmmap** = detach
+**shm_close & shm_unlink** = destroy
+
+{{./screenshot_2015-12-01-220623.png}}
+
+
+==== Shared Memory and Synchronization ====
+
+{{./screenshot_2015-12-01-220819.png}}
+
+
+=== Pthreads for IPC ===
+
+**PTHREAD_PROCESS_SHARED**
+
+{{./screenshot_2015-12-01-220948.png}}
+{{./screenshot_2015-12-01-221139.png}}
+
+
+=== Other IPC Synchronization ===
+
+**Message Queues **- mutual exclusion via send/recv
+**Semaphores **- binary semaphore
+
+{{./screenshot_2015-12-01-221429.png}}
+
+
+==== Linux IPC Command Line Tools ====
+
+{{./screenshot_2015-12-01-221543.png}}
+
+==== Shared Memory Design Considerations ====
+
+{{./screenshot_2015-12-01-221702.png}}
+{{./screenshot_2015-12-01-221743.png}}
+{{./screenshot_2015-12-01-221910.png}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

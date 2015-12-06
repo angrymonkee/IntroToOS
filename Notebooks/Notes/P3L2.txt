@@ -1,0 +1,292 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2015-11-25T18:12:16-05:00
+
+====== P3L2: Memory Management ======
+Created Wednesday 25 November 2015
+
+** Operating systems use memory to manage the "**STATE**" of running processes.
+
+When managing memory there are a few goals to keep in mind:
+1. Devide and concur - memory should to be stored in intelligently sized containers called **Pages** or **Segments** to facilitate better performance
+2. Use only what is needed - tasks should operate on a subsets of memory because not all memory is needed at the same time
+3. Optimize access to state and swapping of pages
+
+The most efficient memory managment would be work on a single subset of memory that contains all of the required state for the process within a single page. Because this is highly unlikely, we want to try to minimize deviations from this ideal as much as possible.
+
+{{./screenshot_2015-11-25-181654.png}}
+
+
+
+**Virtualizing Memory**
+
+Inorder to not be constained by the physical hardware the OS memory management uses virtual memory for it's address space. The virtual addresses are translated into physical memory. When managing the virtual memory, the OS needs to be properly **Allocate** and **Arbitrate**.
+
+1. Allocate and identify any physical memory locations that are not currently loaded into the physical memory. The virtual address space could contain an address that is currently stored on disk and the OS would need to load that into the physical memory
+2. Arbitrate the virtual to physical address mapping, lookup and verification. This needs to happen very quickly so this is a seperate goal
+
+
+
+{{./screenshot_2015-11-25-184132.png}}
+
+
+**Page-Based Memory Management (Dominant Approach)**
+
+- **Pages** - Fixed virtual memory segments
+- **Page Frames** - Fixed physical memory segments
+
+Pages and page frames are broken into equal sized segments that are mapped to one another via a page table.
+
+**Segment-Based Memory Management**
+
+Flexibly sized segements which can be mapped to locations in physical memory using segment registers
+
+{{./screenshot_2015-11-25-185611.png}}
+
+
+**Hardware Support**
+
+Inorder to make memory managment more efficient hardware had to evolve to integrate several components to make it easier, faster or more reliable
+
+**MMU - Memory Managment Unit** - Responsible for translating VM addresses to PM addresses from CPU to Main Memory AND for reporting faults.
+	**Address Not Present**: This is used to fault when memory addresses are not currently pressent in the physical memory so that the OC can go and retrieve the requirement memory from disk and load it into the physical address space.
+	**Illegal Access**: Fault can be reported if process is trying to access memory it does not own.
+
+**Designated Registers** - Used of designated registers by the hardware during the address translation process. The registers can store pointers to the page table in a page table management system; or it can store base address of the segement and size of the segment, etc...
+
+**Cache - Translation Lookaside Buffer (TLB)** - Many MMUs contain TLB which cache valid previously looked up memory addresses. This helps in the translation of virtual to physical address mappings that have already been validated.
+
+**Translation** - The actual translation between virtual to physical memory is done by the hardware. This means that the hardware will determine the types of memory management systems you can use (Paging or Segments)
+
+{{./screenshot_2015-11-25-190500.png}}
+
+
+
+**Page Tables**
+
+
+Map which tells the HW and OS where to find specific virtual memory addresses. Because the VM page size mataches the page frame size of the PM, that means the page table only needs to map to the first address in both the page and page frame. This decreases the size of the page table.
+
+ {{./screenshot_2015-11-25-192429.png}}
+
+
+Virtual Address
+VPN - Virtual Page Number - Offset into to the page table
+Offset - Offset in virtual memory to be used when mapping to physical memory location
+
+Physical Address
+PFN - Physical Frame Number - The physical address of the physical frame in DRAM
+Offset - offset in physical frame to get to actual physical address in DRAM
+
+{{./screenshot_2015-11-25-193224.png}}
+
+
+Virtual to Physical memory mapping is only allocated on "first touch". This means that there will be not page table reference between virtual to physical memory until the virtual memory is initialized for the first time and is being set.
+
+
+{{./screenshot_2015-11-25-193713.png}}
+
+Unused pages will be reclaimed
+
+{{./screenshot_2015-11-25-193742.png}}
+
+
+***** Page Tables Exist For Each Process**
+
+This also means that when a context switch occurs the register that points to the page table (CR3 on x86) also needs to be updated.
+
+{{./screenshot_2015-11-25-194138.png}}
+
+
+**Page Table Entry**
+
+PFN - Page Frame Number
+
+{{./screenshot_2015-11-30-204548.png}}
+
+
+{{./screenshot_2015-11-30-204956.png}}
+
+
+MMU uses the page table entries, not just for address **translations** but also for determining the **validity of the access**. If a physical memory access cannot be performed, the hardware wil **generate a page fault and trap into the Kernel**. (access violation due to permissions or needs to hit disk)
+
+{{./screenshot_2015-11-30-205905.png}}
+
+
+**Calculating the Page Table Size**
+
+{{./screenshot_2015-11-30-210024.png}}{{./screenshot_2015-11-30-210053.png}}
+
+** Note: The process doesn't use the entire address space for a given page. Therefore if 
+the page size is 4KB and a piece of data is stored that is only 1KB then 3KB are wasted or
+"fragmented" (this is solved by hierarchal page tables
+
+{{./screenshot_2015-11-30-210143.png?type=None}}
+
+
+**Hierarchal Page Tables**
+
+1. Top most page table is the **page table directory**
+2. Internal page tables **ONLY STORE VALID VIRTUAL MEMORY REGIONS**
+
+{{./screenshot_2015-11-30-210841.png}}
+
+{{./screenshot_2015-11-30-210918.png}}
+
+**D** = Offset to compute offset in physical page
+**P1** = Index into outer page table (directory entry)
+**P2** = Index into the internal page table (page table entry of the PFN)
+
+{{./screenshot_2015-11-30-211134.png}}
+
+{{./screenshot_2015-11-30-211301.png}}
+
+{{./screenshot_2015-11-30-212005.png}}
+
+
+
+{{./screenshot_2015-11-30-212131.png}}
+
+
+**Overhead of Address Translation**
+
+{{./screenshot_2015-11-30-212259.png}}
+
+**Page Table Cache (TLB - Translation Lookaside Buffer)**
+
+{{./screenshot_2015-11-30-212430.png}}
+
+**Alternative to Page Table is Inverted Page Tables**
+
+{{./screenshot_2015-11-30-212902.png}}
+
+{{./screenshot_2015-11-30-212932.png}}
+
+
+**Segmentation**
+
+{{./screenshot_2015-11-30-213207.png}}
+
+
+In practice both Page Tables and Segmentation are used together. The linear address (segmentation method) is computed and passed to the paging unit (multi-level page table) to locate the correct physical address.
+
+
+**How large is a page??**
+
+{{./screenshot_2015-11-30-215635.png}}
+
+1. **Larger pages require smaller page tables**, which result is more TLB hits and therefore **smaller translation latency**
+
+2. Larger pages also mean **more internal fragmentation** or pages that are not full (**wastes memory**)
+
+
+**Memory Allocation**
+
+Memory allocators can be:
+1. Kernel-Level - Reponsible for keeping track of free memory available in the system and Kernel state
+2. User-Level - Dynamic process state (heap). What we typically do in our applications (malloc/free)
+
+{{./screenshot_2015-11-30-220711.png}}
+
+**Memory Allocation Challenge**
+
+First...
+{{./screenshot_2015-11-30-220838.png}}
+
+then...
+{{./screenshot_2015-11-30-220935.png}}
+
+Result: Wholes of free memory that is not continguous so requests for consecutive regions are stifled.
+
+**Second Case....**
+
+First...
+{{./screenshot_2015-11-30-221217.png}}
+
+then...
+{{./screenshot_2015-11-30-221249.png}}
+
+
+**Linux Allocators**
+
+Buddy - Subdivides chunks in half to find smallest size chunk that can satisfy the request
+Slab - 
+
+Buddy...
+{{./screenshot_2015-11-30-221724.png}}
+
+Fragmentation still exists but when allocation is freed it is easy to figure out where adjacent allocation starts so aggregation of free areas can happen quickly
+
+**PROBLEM: FRAGMENTATION
+
+
+Slab...
+{{./screenshot_2015-11-30-221907.png}}
+
+Slab allocator will create caches for objects of a particular size, that point to contiguous memory addresses. When a cache object is freed it can be replaced by another object of the same size later so fragmentation is less of an issue.
+
+
+**Paging or** **Demand Paging**
+
+Used to handle the fact that virtual memory is larger than physical memory
+
+{{./screenshot_2015-11-30-222331.png}}
+
+
+**How paging works!**
+
+{{./screenshot_2015-11-30-222857.png?type=None}}
+
+Steps:
+
+1. Page not present in memory, reference to page
+2. Trap into OS kernel
+3. Kernel determines page is on disc, so issues IO operation to retreive memory
+4. Brings in missing page, OS determines free frame where page can live
+5. Page table is updated
+6. Restarts the instruction with the new address location
+
+**Questions????**
+
+{{./screenshot_2015-11-30-222950.png}}
+
+
+When...
+{{./screenshot_2015-11-30-223030.png}}
+
+Which... (Least Recently Used)
+{{./screenshot_2015-11-30-223228.png}}
+
+{{./screenshot_2015-11-30-223327.png}}
+
+**Other Services that can benefit from MMU Hardware**
+
+{{./screenshot_2015-11-30-223433.png}}
+
+**Copy On Write (COW)**
+
+{{./screenshot_2015-11-30-223548.png}}
+
+{{./screenshot_2015-11-30-223504.png}}
+{{./screenshot_2015-11-30-223639.png}}
+
+
+**Check Pointing**
+Failure and recovery mechanisms supplied by many Operating Systems
+
+{{./screenshot_2015-11-30-223928.png}}
+
+{{./screenshot_2015-11-30-224027.png}}
+
+**From check pointing to Debugging and Migration...**
+
+{{./screenshot_2015-11-30-224235.png}}
+
+
+
+
+
+
+
+
+

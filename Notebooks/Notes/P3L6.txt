@@ -1,0 +1,340 @@
+Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: 2015-10-04T22:40:21-04:00
+
+====== P3L6: Virtualization ======
+
+
+=== What Is Virtualization ===
+
+- Started in the 1960's
+- Virtualization allows multiple OSs to be deployed on the same physical platform.
+- Each OS thinks it "owns" its hardware
+- Virtual Machine — OS and Applications
+
+{{./screenshot_2015-12-05-211809.png}}
+
+
+=== Defining Virtualization ===
+
+Virtual Machine: efficient, isolated, duplicate of the real machine, supported by a virtual machine monitor (VMM)
+
+Virtual Machine Monitor (VMM)
+1. Provides essentially identical environment as the original machine
+2. At worst only minor decrease in speed
+3. In complete control of the system resources
+
+{{./screenshot_2015-12-05-212358.png}}
+
+{{./screenshot_2015-12-05-212434.png}}
+
+
+=== Benefits of Virtualization ===
+
+**Consolidation** - running multiple machines on a single physical machine
+	- Decrease cost
+	- Improve manageability of the system
+**Migration** - 
+	- Availability - create new VMs whenever needed
+	- Reliability - When hardware fails migration can occur to new machine
+**Security**
+**Debugging**
+**Support for Legacy OSs**
+
+{{./screenshot_2015-12-05-213413.png}}
+
+{{./screenshot_2015-12-05-213501.png}}
+
+{{./screenshot_2015-12-05-213535.png}}
+
+
+=== Two Main Virtualization Models ===
+**Bare-Metal or Hypervisor-Based (Type1)**
+**Hosted (Type2)**
+
+=== Virtualization Models Bare Metal ===
+
+VMM (Hypervisor)
+Service VM with hightened privilages to deal with devices
+
+{{./screenshot_2015-12-05-213919.png}}
+
+Xen (Hypervisor)
+	- dom0 - Service VM
+	- domUs - Guest VMs
+	- drivers run in dom0
+
+ESX (VMWare)
+
+{{./screenshot_2015-12-05-214233.png}}
+
+
+=== Virtualization Models Hosted ===
+
+{{./screenshot_2015-12-05-214346.png}}
+
+KVM - based on linux system
+QEMU - Emulator used to emulate hardware devices, only interveins certain critical instructions when it needs to pass control to the host OS.
+
+{{./screenshot_2015-12-05-214539.png}}
+
+{{./screenshot_2015-12-05-214836.png}}
+
+{{./screenshot_2015-12-05-214901.png}}
+
+
+=== Hardware Supported Protection Levels ===
+
+Native Model
+Ring 0: OS highest priviledge
+Ring 3: lowest priviledge application
+
+{{./screenshot_2015-12-05-215301.png}}
+
+Virtualization Approach
+Ring 0: Hypervisor
+Ring 1: OS
+Ring 3: Applications
+
+{{./screenshot_2015-12-05-215355.png}}
+
+More Recent x86 Models (root vs non-root mode)
+{{./screenshot_2015-12-05-215558.png}}
+
+
+=== Processor Virtualization ===
+
+{{./screenshot_2015-12-05-215913.png}}
+
+
+=== x86 Virtualization in the Past ===
+
+{{./screenshot_2015-12-05-220105.png}}
+
+{{./screenshot_2015-12-05-220200.png}}
+
+
+=== Binary Translation ===
+
+{{./screenshot_2015-12-05-220305.png}}
+
+Binary translation
+	- **Full Virtualization**: Run unmodified guest OS
+	- Dynamic binary translation
+
+{{./screenshot_2015-12-05-220648.png}}
+
+
+=== Paravirtualization ===
+
+{{./screenshot_2015-12-05-220901.png}}
+
+{{./screenshot_2015-12-05-221005.png}}
+
+
+=== Memory Virtualization Full ===
+
+**** All guest OSs should see a contiguous physical memory starting at zero**
+
+{{./screenshot_2015-12-05-221413.png}}
+
+
+=== Memory Virtualization Paravirtualized ===
+
+**** Guest OS is aware of virtualization so can modify the guest OS**
+
+{{./screenshot_2015-12-05-221705.png}}
+
+=== Device Virtualization ===
+
+{{./screenshot_2015-12-05-221902.png}}
+
+
+=== Passthrough Model ===
+
+Guest VM as access to the hardware directly and by-passes the VMM
+
+{{./screenshot_2015-12-05-222210.png}}
+
+
+=== Hypervisor Direct Model ===
+
+Hypervisor intercepts every device access from the guest VM
+
+{{./screenshot_2015-12-05-222357.png}}
+
+{{./screenshot_2015-12-05-222436.png}}
+
+
+=== Split Device Driver Model ===
+
+All device access control is split between front-end driver and back-end driver in service VM
+
+{{./screenshot_2015-12-05-222914.png}}
+
+
+=== Hardware Virtualization ===
+
+{{./screenshot_2015-12-05-223438.png}}
+
+{{./screenshot_2015-12-05-223517.png}}
+
+
+=== x86 VT Revolution ===
+
+{{./screenshot_2015-12-05-223558.png}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
